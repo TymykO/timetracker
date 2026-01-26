@@ -8,3 +8,5 @@ psycopg2-binary==2.9.10
 gunicorn==23.0.0
 # CORS headers for SPA frontend
 django-cors-headers==4.6.0
+# Testing utilities
+freezegun==1.5.1
