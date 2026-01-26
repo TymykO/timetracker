@@ -13,6 +13,14 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from pathlib import Path
 
+# Fix dla Windows CP1251 locale + psycopg2 UnicodeDecodeError
+# Wymusza UTF-8 encoding dla komunikatów błędów PostgreSQL
+os.environ['PGCLIENTENCODING'] = 'UTF8'
+
+# Wybór bazy danych: SQLite dla quick local dev, PostgreSQL dla Docker/prod
+# Aby użyć PostgreSQL lokalnie: ustaw DB_ENGINE=django.db.backends.postgresql
+USE_SQLITE = os.environ.get('USE_SQLITE', 'True') == 'True'
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -80,16 +88,31 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 # NOTE: PostgreSQL is required. Configure via environment variables or use Docker.
 
-DATABASES = {
-    'default': {
-        'ENGINE': os.environ.get('DB_ENGINE', 'django.db.backends.postgresql'),
-        'NAME': os.environ.get('DB_NAME', 'timetracker'),
-        'USER': os.environ.get('DB_USER', 'timetracker'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'timetracker'),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
+if USE_SQLITE:
+    # SQLite dla local development (unika problemów z psycopg2 na Windows)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    # PostgreSQL dla Docker / production
+    DATABASES = {
+        'default': {
+            'ENGINE': os.environ.get('DB_ENGINE', 'django.db.backends.postgresql'),
+            'NAME': os.environ.get('DB_NAME', 'timetracker'),
+            'USER': os.environ.get('DB_USER', 'timetracker'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', 'timetracker'),
+            'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+            'OPTIONS': {
+                # Wymusza UTF-8 client encoding aby uniknąć UnicodeDecodeError
+                # na Windows z non-UTF8 locale (cp1251 ukraiński)
+                'client_encoding': 'UTF8',
+            },
+        }
+    }
 
 
 # Password validation
