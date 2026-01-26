@@ -254,3 +254,41 @@ Scopes examples:
 - `backend`, `frontend`, `auth`, `timesheet`, `outbox`, `docker`, `deps`
 
 Keep commits focused (one logical change per commit).
+
+### AI Agent: Commit workflow
+
+**IMPORTANT:** Agent must NEVER create commits automatically. Only commit when explicitly requested by user.
+
+**Trigger phrases:** User must use one of these phrases to request commits:
+- "zacommituj zmiany" (Polish)
+- "stwórz commity" (Polish)
+- "zrób commity" (Polish)
+- "commit changes" (English)
+- "create commits" (English)
+
+**When triggered, agent must:**
+
+1. **Always split changes into multiple logical commits** - group related changes together
+2. **Create separate commits** for different types of changes:
+   - Documentation changes separate from code changes
+   - Configuration changes separate from feature implementation
+   - Dependencies separate from application code
+   - Each feature/fix in its own commit
+3. **Use clear, informative commit messages WITHOUT emojis**
+4. **Follow conventional commit format** strictly: `<type>(<scope>): <subject>`
+5. **Keep commit messages concise** - focus on WHAT changed and WHY
+
+Example of good commit sequence after organizational audit:
+```
+docs: napraw formatowanie markdown w README i AGENTS
+feat(backend): skonfiguruj Django settings zgodnie z AGENTS.md
+feat(docker): dodaj konfiguracje compose dla dev i prod
+chore: zaktualizuj dependencies i konfiguracje
+```
+
+**DO NOT:**
+- Create commits without explicit user request
+- Create single commit with all changes mixed together
+- Use emojis in commit messages (❌ 🎉 ✨ etc.)
+- Write vague messages like "update files" or "fixes"
+- Commit unrelated changes together
