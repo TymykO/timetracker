@@ -19,6 +19,8 @@ htmlcov/
 /staticfiles/
 /media/
 *.log
+*.sqlite3
+db.sqlite3
 
 # Node / Frontend
 node_modules/
