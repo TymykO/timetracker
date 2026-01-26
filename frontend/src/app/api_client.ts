@@ -52,10 +52,15 @@ async function apiFetch<T>(
   const url = `${API_BASE}${endpoint}`;
 
   // Przygotuj headers z CSRF tokenem dla mutating requests
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...options?.headers,
   };
+
+  // Skopiuj dodatkowe headers z options
+  if (options?.headers) {
+    const optHeaders = options.headers as Record<string, string>;
+    Object.assign(headers, optHeaders);
+  }
 
   // Dodaj CSRF token dla POST/PUT/DELETE/PATCH
   const method = options?.method?.toUpperCase() || 'GET';

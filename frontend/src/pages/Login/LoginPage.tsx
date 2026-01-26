@@ -7,7 +7,7 @@
  * - Przekierowanie do /month po zalogowaniu
  */
 
-import { useState, FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../app/api_client";
 
