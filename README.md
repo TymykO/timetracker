@@ -1,4 +1,3 @@
-````md
 # TimeTracker
 
 **TimeTracker** is a lightweight time logging system built as a **Django + React** application.  
@@ -311,7 +310,3 @@ No public registration exists in MVP.
 ## 📄 License
 
 See `LICENSE`.
-
-```
-::contentReference[oaicite:0]{index=0}
-```

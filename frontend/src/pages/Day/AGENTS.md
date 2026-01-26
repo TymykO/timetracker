@@ -1,4 +1,3 @@
-````md
 # TimeTracker — AGENTS (FRONTEND / Day Page)
 
 > Scope: `frontend/src/pages/Day/`  
@@ -258,7 +257,3 @@ Day page is MVP-complete when:
 * cannot save if total > 24h
 * respects editability window (inputs/actions disabled)
 * save sends full day payload and refreshes month + day data
-
-```
-::contentReference[oaicite:0]{index=0}
-```

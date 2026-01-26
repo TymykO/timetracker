@@ -72,9 +72,8 @@ export default defineConfig([
 ])
 ```
 
-###
+---
 
-````md
 # TimeTracker — Frontend (React + TypeScript)
 
 This directory contains the **React SPA** for TimeTracker.  
@@ -272,7 +271,3 @@ If automated tests are added later:
 
   * correct CORS settings on backend
   * matching domain/ports rules (dev setup dependent)
-
-```
-::contentReference[oaicite:0]{index=0}
-```

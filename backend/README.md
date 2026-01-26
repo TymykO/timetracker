@@ -1,4 +1,3 @@
-````md
 # TimeTracker — Backend (Django)
 
 This directory contains the **Django backend** for TimeTracker:
@@ -188,7 +187,3 @@ Backend tests must cover at minimum:
 * Celery + Redis may replace/augment outbox worker (Phase 2)
 * Server-side task filtering/search if TaskCache grows significantly
 * Extended admin tools / audits / reporting endpoints
-
-```
-::contentReference[oaicite:0]{index=0}
-```
