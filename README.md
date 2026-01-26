@@ -206,27 +206,34 @@ sequenceDiagram
 
 ## Option A: Docker (recommended)
 
-1. Create local env file:
+**Szczegółowe instrukcje Docker:** Zobacz [`DOCKER.md`](DOCKER.md) dla pełnej dokumentacji środowisk dev i prod.
 
-* Copy `.env.example` to `.env` and fill values
+**Szybki start:**
 
-2. Start dev stack:
+1. Skopiuj `.env.example` do `.env`:
+
+```bash
+cp .env.example .env
+```
+
+2. Uruchom dev stack:
 
 ```bash
 docker compose -f docker-compose.dev.yml up --build
 ```
 
-3. Run migrations + create admin:
+3. Wykonaj migracje i utwórz superusera (w osobnym terminalu):
 
 ```bash
-docker compose -f docker-compose.dev.yml exec backend python manage.py migrate
-docker compose -f docker-compose.dev.yml exec backend python manage.py createsuperuser
+docker exec -it timetracker_backend_dev python manage.py migrate
+docker exec -it timetracker_backend_dev python manage.py createsuperuser
 ```
 
-4. Open:
+4. Dostęp:
 
-* Frontend dev server (if separate) or Nginx service (depending on compose)
-* Backend API typically at: `http://localhost:8000` (depends on compose)
+* **Frontend:** http://localhost:5173
+* **Backend API:** http://localhost:8000/api
+* **Django Admin:** http://localhost:8000/admin
 
 ---
 
