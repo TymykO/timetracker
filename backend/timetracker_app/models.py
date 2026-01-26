@@ -1,4 +1,6 @@
 from django.db import models
+from django.conf import settings
+from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
 
 
@@ -6,15 +8,18 @@ class Employee(models.Model):
     """
     Model pracownika - podstawowa encja użytkownika systemu.
     Pracownicy są tworzeni wyłącznie przez admina.
+    Employee jest domenową tożsamością, User służy do autentykacji.
     """
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="employee",
+        verbose_name="Użytkownik Django"
+    )
     email = models.EmailField(
         unique=True,
         max_length=255,
         verbose_name="Email"
-    )
-    password = models.CharField(
-        max_length=128,
-        verbose_name="Hasło (hash)"
     )
     is_active = models.BooleanField(
         default=True,
@@ -188,12 +193,12 @@ class TimeEntry(models.Model):
             ),
             # Walidacja: czas > 0
             models.CheckConstraint(
-                check=models.Q(duration_minutes_raw__gt=0),
+                condition=models.Q(duration_minutes_raw__gt=0),
                 name="check_duration_positive"
             ),
             # Walidacja: rozliczalne półgodziny >= 1
             models.CheckConstraint(
-                check=models.Q(billable_half_hours__gte=1),
+                condition=models.Q(billable_half_hours__gte=1),
                 name="check_billable_min_one"
             ),
         ]
@@ -251,3 +256,59 @@ class CalendarOverride(models.Model):
 
     def __str__(self):
         return f"{self.day} - {self.get_day_type_display()}"
+
+
+class AuthToken(models.Model):
+    """
+    Token autentykacji dla invite i password reset.
+    Tokeny są jednorazowe (used_at) i wygasają (expires_at).
+    Przechowywany jest tylko hash tokenu (SHA-256), nie surowy token.
+    """
+    
+    PURPOSE_CHOICES = [
+        ("INVITE", "Invite"),
+        ("RESET", "Password Reset"),
+    ]
+    
+    token_hash = models.CharField(
+        max_length=64,  # SHA-256 hex = 64 znaki
+        unique=True,
+        db_index=True,
+        verbose_name="Hash tokenu"
+    )
+    purpose = models.CharField(
+        max_length=20,
+        choices=PURPOSE_CHOICES,
+        verbose_name="Cel tokenu"
+    )
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name="auth_tokens",
+        verbose_name="Pracownik"
+    )
+    expires_at = models.DateTimeField(
+        verbose_name="Wygasa"
+    )
+    used_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Użyty"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Utworzony"
+    )
+
+    class Meta:
+        db_table = "auth_token"
+        verbose_name = "Token autentykacji"
+        verbose_name_plural = "Tokeny autentykacji"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["token_hash"], name="idx_auth_token_hash"),
+            models.Index(fields=["employee", "purpose"], name="idx_auth_emp_purpose"),
+        ]
+
+    def __str__(self):
+        return f"{self.get_purpose_display()} - {self.employee.email} - {self.created_at}"
