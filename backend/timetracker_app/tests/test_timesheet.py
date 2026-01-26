@@ -72,7 +72,7 @@ class TimesheetServiceTestCase(TestCase):
     
     # === Tests dla save_day() - walidacje ===
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_rejects_future_date(self):
         """Test 1: save_day odrzuca przyszłą datę."""
         future_date = date(2025, 3, 20)  # Za 5 dni
@@ -81,7 +81,7 @@ class TimesheetServiceTestCase(TestCase):
         with self.assertRaises(FutureDateError):
             save_day(self.employee, future_date, items)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_rejects_old_month(self):
         """Test 2: save_day odrzuca miesiąc starszy niż poprzedni."""
         old_date = date(2025, 1, 15)  # Styczeń (2 miesiące wstecz)
@@ -90,7 +90,7 @@ class TimesheetServiceTestCase(TestCase):
         with self.assertRaises(NotEditableError):
             save_day(self.employee, old_date, items)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_accepts_current_month(self):
         """Test 3: save_day akceptuje bieżący miesiąc."""
         current_date = date(2025, 3, 10)
@@ -101,7 +101,7 @@ class TimesheetServiceTestCase(TestCase):
         self.assertTrue(result.success)
         self.assertEqual(TimeEntry.objects.filter(employee=self.employee, work_date=current_date).count(), 1)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_accepts_previous_month(self):
         """Test 4: save_day akceptuje poprzedni miesiąc."""
         prev_month_date = date(2025, 2, 20)
@@ -112,7 +112,7 @@ class TimesheetServiceTestCase(TestCase):
         self.assertTrue(result.success)
         self.assertEqual(TimeEntry.objects.filter(employee=self.employee, work_date=prev_month_date).count(), 1)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_rejects_zero_duration(self):
         """Test 5: save_day odrzuca duration=0."""
         work_date = date(2025, 3, 10)
@@ -121,7 +121,7 @@ class TimesheetServiceTestCase(TestCase):
         with self.assertRaises(InvalidDurationError):
             save_day(self.employee, work_date, items)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_rejects_negative_duration(self):
         """Test 6: save_day odrzuca duration<0."""
         work_date = date(2025, 3, 10)
@@ -130,7 +130,7 @@ class TimesheetServiceTestCase(TestCase):
         with self.assertRaises(InvalidDurationError):
             save_day(self.employee, work_date, items)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_rejects_duplicate_tasks(self):
         """Test 7: save_day odrzuca duplikaty task_id w payload."""
         work_date = date(2025, 3, 10)
@@ -154,9 +154,64 @@ class TimesheetServiceTestCase(TestCase):
         with self.assertRaises(DayTotalExceededError):
             save_day(self.employee, work_date, items)
     
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
+    def test_save_day_accepts_exactly_1440_minutes(self):
+        """Test 8b: save_day akceptuje dokładnie 1440 minut (case graniczny)."""
+        work_date = date(2025, 3, 10)
+        items = [SaveDayItemRequest(task_id=self.task1.id, duration_minutes_raw=1440)]
+        
+        result = save_day(self.employee, work_date, items)
+        
+        self.assertTrue(result.success)
+        entry = TimeEntry.objects.get(employee=self.employee, work_date=work_date)
+        self.assertEqual(entry.duration_minutes_raw, 1440)
+    
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
+    def test_db_constraint_duplicate_entry(self):
+        """Test 8c: Constraint DB blokuje duplikaty (employee, work_date, task)."""
+        from django.db import IntegrityError
+        
+        work_date = date(2025, 3, 10)
+        
+        # Utwórz pierwszy entry
+        TimeEntry.objects.create(
+            employee=self.employee,
+            task=self.task1,
+            work_date=work_date,
+            duration_minutes_raw=120,
+            billable_half_hours=4
+        )
+        
+        # Próba utworzenia duplikatu przez ORM (pominięcie walidacji serwisu)
+        with self.assertRaises(IntegrityError):
+            TimeEntry.objects.create(
+                employee=self.employee,
+                task=self.task1,
+                work_date=work_date,
+                duration_minutes_raw=180,
+                billable_half_hours=6
+            )
+    
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
+    def test_db_constraint_billable_half_hours_min_one(self):
+        """Test 8d: Constraint DB wymaga billable_half_hours >= 1."""
+        from django.db import IntegrityError
+        
+        work_date = date(2025, 3, 10)
+        
+        # Próba utworzenia entry z billable_half_hours=0 przez ORM
+        with self.assertRaises(IntegrityError):
+            TimeEntry.objects.create(
+                employee=self.employee,
+                task=self.task1,
+                work_date=work_date,
+                duration_minutes_raw=1,  # Technicznie valid duration
+                billable_half_hours=0   # Ale billable < 1 -> constraint fail
+            )
+    
     # === Tests dla save_day() - CRUD logic ===
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_creates_new_entries(self):
         """Test 9: save_day tworzy nowe entries."""
         work_date = date(2025, 3, 10)
@@ -175,7 +230,7 @@ class TimesheetServiceTestCase(TestCase):
         self.assertEqual(entry1.duration_minutes_raw, 120)
         self.assertEqual(entry1.billable_half_hours, 4)  # ceil(120/30)=4
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_updates_existing_entries(self):
         """Test 10: save_day aktualizuje istniejące entries."""
         work_date = date(2025, 3, 10)
@@ -198,7 +253,7 @@ class TimesheetServiceTestCase(TestCase):
         self.assertEqual(entry.duration_minutes_raw, 150)
         self.assertEqual(entry.billable_half_hours, 5)  # ceil(150/30)=5
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_deletes_removed_entries(self):
         """Test 11: save_day usuwa entries które zniknęły z payload."""
         work_date = date(2025, 3, 10)
@@ -228,7 +283,7 @@ class TimesheetServiceTestCase(TestCase):
         self.assertEqual(entries.count(), 1)
         self.assertEqual(entries.first().task, self.task1)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_mixed_create_update_delete(self):
         """Test 12: save_day - kombinacja create/update/delete."""
         work_date = date(2025, 3, 10)
@@ -292,7 +347,7 @@ class TimesheetServiceTestCase(TestCase):
         # 91 min -> 4 półgodziny
         self.assertEqual(_calculate_billable_half_hours(91), 4)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_enqueues_outbox_job(self):
         """Test 14: save_day enqueue'uje OutboxJob z poprawnym dedup_key."""
         work_date = date(2025, 3, 10)
@@ -314,7 +369,7 @@ class TimesheetServiceTestCase(TestCase):
     
     # === Tests dla month_summary() ===
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_month_summary_empty_month(self):
         """Test 15: month_summary dla pustego miesiąca."""
         month = date(2025, 3, 1)
@@ -332,7 +387,7 @@ class TimesheetServiceTestCase(TestCase):
         self.assertEqual(day1['day_type'], "Free")
         self.assertEqual(day1['overtime_minutes'], 0)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_month_summary_with_entries(self):
         """Test 16: month_summary z entries w kilku dniach."""
         # Utwórz entries
@@ -373,7 +428,7 @@ class TimesheetServiceTestCase(TestCase):
         self.assertEqual(day10['working_time_raw_minutes'], 400)
         self.assertEqual(day10['overtime_minutes'], 0)  # 400<480, brak overtime
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_month_summary_overtime_working_day(self):
         """Test 17: overtime dla Working day."""
         # Dzień roboczy z 500 min -> overtime = 500-480 = 20
@@ -391,7 +446,7 @@ class TimesheetServiceTestCase(TestCase):
         self.assertEqual(day5['day_type'], "Working")
         self.assertEqual(day5['overtime_minutes'], 20)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_month_summary_overtime_free_day(self):
         """Test 18: overtime dla Free day."""
         # Sobota z 300 min -> overtime = 300 (cały czas)
@@ -409,7 +464,7 @@ class TimesheetServiceTestCase(TestCase):
         self.assertEqual(day1['day_type'], "Free")
         self.assertEqual(day1['overtime_minutes'], 300)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_month_summary_calendar_override(self):
         """Test 19: month_summary z calendar override."""
         # Override: sobota 2025-03-01 jako Working
@@ -425,7 +480,7 @@ class TimesheetServiceTestCase(TestCase):
         # Override nadpisuje weekend rule
         self.assertEqual(day1['day_type'], "Working")
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_month_summary_future_days_not_editable(self):
         """Test 20: przyszłe dni mają is_future=True, is_editable=False."""
         result = get_month_summary(self.employee, date(2025, 3, 1))
@@ -442,7 +497,7 @@ class TimesheetServiceTestCase(TestCase):
     
     # === Tests dla get_day() ===
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_get_day_empty(self):
         """Test 21: get_day dla dnia bez entries."""
         work_date = date(2025, 3, 10)
@@ -456,7 +511,7 @@ class TimesheetServiceTestCase(TestCase):
         self.assertEqual(result.total_overtime_minutes, 0)
         self.assertEqual(len(result.entries), 0)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_get_day_with_entries(self):
         """Test 22: get_day z entries."""
         work_date = date(2025, 3, 10)
@@ -488,7 +543,7 @@ class TimesheetServiceTestCase(TestCase):
         self.assertEqual(entry1['duration_minutes_raw'], 200)
         self.assertEqual(entry1['billable_half_hours'], 7)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_get_day_future_not_editable(self):
         """Test 23: get_day dla przyszłego dnia."""
         future_date = date(2025, 3, 20)
@@ -551,28 +606,28 @@ class CalendarServiceTestCase(TestCase):
 class IsEditableHelperTestCase(TestCase):
     """Testy dla helpera _is_editable (dodatkowe edge cases)."""
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_is_editable_current_month(self):
         """is_editable: bieżący miesiąc."""
         today = date(2025, 3, 15)
         work_date = date(2025, 3, 1)
         self.assertTrue(_is_editable(work_date, today))
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_is_editable_previous_month(self):
         """is_editable: poprzedni miesiąc."""
         today = date(2025, 3, 15)
         work_date = date(2025, 2, 20)
         self.assertTrue(_is_editable(work_date, today))
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_is_editable_two_months_ago(self):
         """is_editable: 2 miesiące wstecz -> NOT editable."""
         today = date(2025, 3, 15)
         work_date = date(2025, 1, 15)
         self.assertFalse(_is_editable(work_date, today))
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_is_editable_future(self):
         """is_editable: przyszłość -> NOT editable."""
         today = date(2025, 3, 15)
@@ -631,13 +686,13 @@ class TimesheetAPITestCase(TestCase):
             discipline='Backend'
         )
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_month_summary_401_when_not_logged_in(self):
         """Test: 401/302 gdy nie zalogowany."""
         response = self.client.get('/api/timesheet/month?month=2025-03')
         self.assertIn(response.status_code, [302, 401])
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_month_summary_403_when_inactive(self):
         """Test: 403 gdy employee nieaktywny."""
         self.employee.is_active = False
@@ -647,7 +702,7 @@ class TimesheetAPITestCase(TestCase):
         response = self.client.get('/api/timesheet/month?month=2025-03')
         self.assertEqual(response.status_code, 403)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_month_summary_400_invalid_format(self):
         """Test: 400 przy nieprawidłowym formacie month."""
         self.client.login(username='test@example.com', password='pass')
@@ -655,7 +710,7 @@ class TimesheetAPITestCase(TestCase):
         response = self.client.get('/api/timesheet/month?month=invalid')
         self.assertEqual(response.status_code, 400)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_month_summary_400_future_month(self):
         """Test: 400 przy próbie dostępu do przyszłego miesiąca."""
         self.client.login(username='test@example.com', password='pass')
@@ -663,7 +718,7 @@ class TimesheetAPITestCase(TestCase):
         response = self.client.get('/api/timesheet/month?month=2025-04')
         self.assertEqual(response.status_code, 400)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_month_summary_success(self):
         """Test: sukces dla bieżącego miesiąca."""
         self.client.login(username='test@example.com', password='pass')
@@ -685,7 +740,7 @@ class TimesheetAPITestCase(TestCase):
         self.assertIn('is_future', day)
         self.assertIn('is_editable', day)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_day_view_success(self):
         """Test: GET /api/timesheet/day zwraca szczegóły dnia."""
         self.client.login(username='test@example.com', password='pass')
@@ -699,7 +754,7 @@ class TimesheetAPITestCase(TestCase):
         self.assertIn('total_raw_minutes', data)
         self.assertIn('entries', data)
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_success(self):
         """Test: POST /api/timesheet/day/save zapisuje entries."""
         self.client.login(username='test@example.com', password='pass')
@@ -732,7 +787,7 @@ class TimesheetAPITestCase(TestCase):
             1
         )
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_400_future_date(self):
         """Test: 400 przy próbie zapisu przyszłej daty."""
         self.client.login(username='test@example.com', password='pass')
@@ -751,7 +806,7 @@ class TimesheetAPITestCase(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn('error', response.json())
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_400_zero_duration(self):
         """Test: 400 przy próbie zapisu duration=0."""
         self.client.login(username='test@example.com', password='pass')
@@ -770,7 +825,7 @@ class TimesheetAPITestCase(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn('error', response.json())
     
-    @freeze_time("2025-03-15")
+    @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_400_total_exceeds_1440(self):
         """Test: 400 gdy suma przekracza 1440 minut."""
         self.client.login(username='test@example.com', password='pass')
