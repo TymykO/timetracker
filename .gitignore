@@ -16,8 +16,6 @@ htmlcov/
 .tox/
 
 # Django
-db.sqlite3
-db.sqlite3-journal
 /staticfiles/
 /media/
 *.log
