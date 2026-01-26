@@ -1,189 +1,91 @@
-# TimeTracker — Backend (Django)
+# TimeTracker Backend
 
-This directory contains the **Django backend** for TimeTracker:
-- domain rules + persistence (PostgreSQL)
-- authentication (admin-provisioned users, email + password)
-- API for Month/Day time entry screens
-- Outbox pattern + Worker for background processing
+Backend Django dla systemu TimeTracker.
 
-Root-level overview and diagrams live in `../README.md`.  
-Agent rules live in:
-- `../AGENTS.md` (root)
-- `./AGENTS.md` (backend)
-- nearest module AGENTS: `timetracker_app/services/`, `timetracker_app/auth/`, `timetracker_app/outbox/`
+## Konfiguracja bazy danych
 
----
-
-## 🧱 Architecture (backend)
-
-Backend follows a layered approach:
-
-- **API layer**: `timetracker_app/api/`  
-  Thin HTTP controllers (parse/validate input, call services, return DTOs)
-
-- **Service layer**: `timetracker_app/services/`  
-  Core domain logic (`save_day`, `get_day`, `get_month_summary`, calculations)
-
-- **Domain layer**: `timetracker_app/models.py`  
-  Persistence models + constraints + indexes (no heavy business logic)
-
-- **Auth module**: `timetracker_app/auth/`  
-  Invite tokens, set-password, login/reset flows (Option B)
-
-- **Outbox module**: `timetracker_app/outbox/`  
-  Durable background jobs via DB (enqueue + dispatcher + handlers)
-
-- **Worker**: management command `worker_run`  
-  Runs outbox dispatcher loop
-
----
-
-## 📁 Directory map
-
-```text
-backend/
-├── manage.py
-├── requirements.txt
-├── config/                      # Django project config (settings/urls/asgi/wsgi)
-└── timetracker_app/
-    ├── models.py                # core models (Employee, TaskCache, TimeEntry, AuthToken, OutboxJob, CalendarOverride)
-    ├── api/                     # HTTP API endpoints (JSON)
-    ├── services/                # domain logic (TimesheetService, TaskService, CalendarService)
-    ├── auth/                    # tokens + password flows
-    ├── outbox/                  # enqueue + dispatcher + handlers
-    ├── management/commands/     # sync tasks, worker runner
-    └── tests/                   # backend tests
-````
-
----
-
-## ✅ Core domain rules (backend is source of truth)
-
-Backend enforces:
-
-* no future entries
-* editable window: current month + previous month only
-* no duplicates per employee/day/task (DB unique constraint + service validation)
-* duration must be > 0
-* day total raw duration <= 1440 minutes
-* billable rounding to 0.5h:
-
-  * `billable_half_hours = ceil(duration_minutes_raw / 30)`
-* overtime:
-
-  * Working: `max(0, raw_sum - employee.daily_norm_minutes)`
-  * Free: `overtime = raw_sum`
-* day type:
-
-  * weekend default + optional override (CalendarOverride)
-
----
-
-## 🔌 API responsibilities (high-level)
-
-### Auth
-
-* session-based auth using cookies (HttpOnly)
-* login: email + password
-* set-password via invite token
-* password reset via reset token
-* `/api/me` returns current employee profile + flags
-
-### Timesheet
-
-* Month summary endpoint:
-
-  * days list with `working_time_raw`, `overtime`, `has_entries`, edit flags
-* Day endpoint:
-
-  * list of selected entries for the day, totals, edit flags
-* Save day endpoint:
-
-  * **full-state save** (payload is authoritative)
-  * transaction upsert/delete TimeEntry
-
-### Tasks
-
-* active tasks list from `TaskCache` (`is_active=True`)
-* fields for filtering: `project_phase`, `department`, `discipline`
-* `display_name` + `search_text` for UX
-
----
-
-## 🔐 Authentication flow (Option B)
-
-No public registration. Admin provisions employees.
-
-1. Admin creates Employee (and linked User) in admin panel
-2. System generates INVITE token (one-time, expires)
-3. User opens `/set-password?token=...` and sets password
-4. User logs in with email + password (session cookie)
-5. Password reset uses RESET tokens (one-time, expires)
-
-Tokens are stored hashed (never store raw tokens).
-
----
-
-## 🧵 Outbox + worker
-
-Outbox jobs provide durable background processing:
-
-* `OutboxJob` stored in DB
-* services enqueue jobs via `enqueue(job_type, dedup_key, payload)`
-* worker (`manage.py worker_run`) polls and runs eligible jobs
-* idempotent handlers + retries/backoff
-
-MVP can keep handlers minimal/stubbed, but job lifecycle must work.
-
----
-
-## 🚀 Running backend (dev)
-
-> Prefer Docker from repo root when possible.
-> Below is backend-only guidance.
-
-### Local run (quick)
+### Local development (SQLite - domyślnie)
 
 ```bash
-pip install -r backend/requirements.txt
-python backend/manage.py migrate
-python backend/manage.py createsuperuser
-python backend/manage.py runserver
+# Użyj SQLite (default, unika problemów z psycopg2 na Windows z non-UTF8 locale)
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
 ```
 
-### Run tests
+### Development z PostgreSQL w Docker
 
 ```bash
-python backend/manage.py test
+# 1. Uruchom tylko PostgreSQL
+docker-compose -f docker-compose.dev.yml up -d db
+
+# 2. Wyłącz SQLite, użyj PostgreSQL
+$env:USE_SQLITE="False"  # PowerShell
+# lub
+export USE_SQLITE=False  # bash
+
+# 3. Uruchom migracje
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
 ```
 
-### Run worker (outbox)
+### Production (PostgreSQL w Docker)
+
+Backend automatycznie używa PostgreSQL gdy `USE_SQLITE=False` lub brak zmiennej w środowisku kontenerowym.
 
 ```bash
-python backend/manage.py worker_run
+docker-compose -f docker-compose.prod.yml up --build
 ```
 
----
+## Uruchomienie testów
 
-## 🧪 Testing scope
+```bash
+# Testy używają in-memory SQLite (szybkie)
+python manage.py test
+python manage.py test timetracker_app.tests.test_auth  # tylko testy auth
+```
 
-Backend tests must cover at minimum:
+## Troubleshooting
 
-* `save_day()` validation:
+### UnicodeDecodeError z psycopg2 na Windows
 
-  * future date, edit window, duplicates, total > 1440, duration <= 0
-* upsert/delete behavior:
+**Problem:** Na Windows z non-UTF8 locale (np. cp1251 ukraiński/rosyjski), psycopg2 może rzucać UnicodeDecodeError przy połączeniu z PostgreSQL.
 
-  * create new entries, update existing, delete removed
-* overtime calculations (Working vs Free + override)
-* invite token + reset token flows:
+**Rozwiązanie:** Użyj SQLite dla local development (domyślnie włączone).
 
-  * valid, expired, used tokens
+**Alternatywy:**
+1. Ustaw Windows locale na UTF-8 (wymaga restartu)
+2. Użyj PostgreSQL w Docker (backend uruchamiany w kontenerze)
+3. Ustaw `$env:PGCLIENTENCODING="UTF8"` przed uruchomieniem
 
----
+## Struktura
 
-## 🔧 Notes for future phases
+- `config/` - Django settings i konfiguracja
+- `timetracker_app/` - Główna aplikacja
+  - `models.py` - Modele danych
+  - `auth/` - Autentykacja (tokens, password flows)
+  - `api/` - Endpointy REST API
+  - `services/` - Logika biznesowa
+  - `tests/` - Testy jednostkowe
+  - `management/commands/` - Custom komendy Django
 
-* Celery + Redis may replace/augment outbox worker (Phase 2)
-* Server-side task filtering/search if TaskCache grows significantly
-* Extended admin tools / audits / reporting endpoints
+## Autentykacja
+
+System używa **Option B: email + password** z admin-only provisioning.
+
+**Flow:**
+1. Admin tworzy Employee w Django admin
+2. Admin generuje invite link (akcja w admin)
+3. Employee ustawia hasło przez invite link (jednorazowy token)
+4. Employee loguje się email+password (session cookies)
+
+**Endpoints:**
+- `POST /api/auth/login` - logowanie
+- `POST /api/auth/logout` - wylogowanie
+- `GET /api/me` - profil zalogowanego użytkownika
+- `POST /api/auth/set-password` - ustawienie hasła z invite
+- `POST /api/auth/password-reset/request` - żądanie resetu
+- `POST /api/auth/password-reset/confirm` - potwierdzenie resetu
+
+Zobacz: `AGENTS.md` dla szczegółów implementacji.

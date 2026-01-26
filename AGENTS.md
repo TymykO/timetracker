@@ -207,6 +207,8 @@ Backend:
 - `python backend/manage.py runserver`
 - `python backend/manage.py test`
 
+**Database:** Local dev uses **SQLite by default** (fast, no Docker needed). To use PostgreSQL locally, set `USE_SQLITE=False` and run Docker db container. Tests always use in-memory SQLite.
+
 Frontend:
 - `cd frontend`
 - `npm install`
