@@ -312,3 +312,82 @@ class AuthToken(models.Model):
 
     def __str__(self):
         return f"{self.get_purpose_display()} - {self.employee.email} - {self.created_at}"
+
+
+class OutboxJob(models.Model):
+    """
+    Job w outbox pattern - asynchroniczne zadanie do przetworzenia przez workera.
+    Używany do idempotentnego przetwarzania zdarzeń (np. sync timesheet).
+    """
+    
+    STATUS_CHOICES = [
+        ("PENDING", "Oczekujące"),
+        ("RUNNING", "W trakcie"),
+        ("DONE", "Zakończone"),
+        ("FAILED", "Nieudane"),
+    ]
+    
+    job_type = models.CharField(
+        max_length=100,
+        verbose_name="Typ jobu"
+    )
+    dedup_key = models.CharField(
+        max_length=255,
+        unique=True,
+        verbose_name="Klucz deduplikacji"
+    )
+    payload_json = models.JSONField(
+        verbose_name="Payload JSON"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="PENDING",
+        verbose_name="Status"
+    )
+    attempts = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Liczba prób"
+    )
+    run_after = models.DateTimeField(
+        verbose_name="Uruchom po"
+    )
+    last_error = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="Ostatni błąd"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data utworzenia"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Data aktualizacji"
+    )
+    
+    class Meta:
+        db_table = "outbox_job"
+        verbose_name = "Job outbox"
+        verbose_name_plural = "Joby outbox"
+        ordering = ["run_after"]
+        indexes = [
+            # Composite index dla pollingu: szybkie wyszukiwanie jobów do uruchomienia
+            models.Index(
+                fields=["status", "run_after"],
+                name="idx_outbox_status_run"
+            ),
+            # Index dla dedup_key (już unique, ale dodatkowy index pomaga w lookup)
+            models.Index(
+                fields=["dedup_key"],
+                name="idx_outbox_dedup"
+            ),
+            # Index dla job_type (przydatny przy monitoringu/statystykach)
+            models.Index(
+                fields=["job_type"],
+                name="idx_outbox_job_type"
+            ),
+        ]
+    
+    def __str__(self):
+        return f"{self.job_type} - {self.status} - {self.created_at}"
