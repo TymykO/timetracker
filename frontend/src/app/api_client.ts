@@ -31,24 +31,49 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Helper do czytania CSRF cookie ustawionego przez Django.
+ * Django ustawia cookie 'csrftoken', który musimy wysłać w headerze X-CSRFToken.
+ */
+function getCsrfToken(): string | null {
+  const name = 'csrftoken';
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    return parts.pop()?.split(';').shift() || null;
+  }
+  return null;
+}
+
 async function apiFetch<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
 
+  // Przygotuj headers z CSRF tokenem dla mutating requests
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...options?.headers,
+  };
+
+  // Dodaj CSRF token dla POST/PUT/DELETE/PATCH
+  const method = options?.method?.toUpperCase() || 'GET';
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers['X-CSRFToken'] = csrfToken;
+    }
+  }
+
   const response = await fetch(url, {
     ...options,
     credentials: "include", // MUST: wysyłaj cookies dla session auth
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
+    headers,
   });
 
-  // 401 = nie zalogowany -> przekieruj na login
+  // 401 = nie zalogowany -> rzuć error (AuthGuard obsłuży przekierowanie)
   if (response.status === 401) {
-    window.location.href = "/login";
     throw new ApiError(401, "Unauthorized");
   }
 
@@ -60,7 +85,11 @@ async function apiFetch<T>(
   const data = await response.json();
 
   if (!response.ok) {
-    throw new ApiError(response.status, data.error || "Request failed");
+    // Type guard dla error response z backendu
+    const errorMessage = typeof data === 'object' && data && 'error' in data 
+      ? String(data.error) 
+      : "Request failed";
+    throw new ApiError(response.status, errorMessage);
   }
 
   return data;

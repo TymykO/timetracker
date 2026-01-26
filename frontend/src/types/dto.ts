@@ -105,9 +105,3 @@ export interface TaskListResponse {
   tasks: Task[];
   filter_values: FilterValues;
 }
-
-// === Error response ===
-
-export interface ErrorResponse {
-  error: string;
-}
