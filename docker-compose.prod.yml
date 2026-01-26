@@ -30,6 +30,7 @@ services:
       DEBUG: "False"
       SECRET_KEY: ${SECRET_KEY}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      USE_SQLITE: "False"
       DB_ENGINE: django.db.backends.postgresql
       DB_NAME: ${DB_NAME:-timetracker}
       DB_USER: ${DB_USER:-timetracker}
@@ -69,6 +70,7 @@ services:
     environment:
       DEBUG: "False"
       SECRET_KEY: ${SECRET_KEY}
+      USE_SQLITE: "False"
       DB_ENGINE: django.db.backends.postgresql
       DB_NAME: ${DB_NAME:-timetracker}
       DB_USER: ${DB_USER:-timetracker}
