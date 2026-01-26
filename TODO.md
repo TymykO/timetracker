@@ -252,3 +252,239 @@ Zgodnie z `frontend/src/pages/Day/AGENTS.md`:
 - PROMPT 1–6: backend (deps → models → auth → services → API → outbox/worker)
 - PROMPT 7–10: frontend (routing → api client → month → day)
 - PROMPT 11–12: docker + stabilizacja
+
+---
+
+## Smoke Test Checklist (Manual)
+
+> Manualna lista testów do przeprowadzenia przed wypuszczeniem MVP.
+> Testy E2E (Playwright) pokrywają większość scenariuszy, ale ta checklist służy jako ostateczna weryfikacja end-to-end flow.
+
+### Prerequisites
+
+- [ ] Backend running (dev: `docker compose -f docker-compose.dev.yml up`)
+- [ ] Frontend running (`cd frontend && npm run dev` lub w kontenerze)
+- [ ] Database migrated (`python manage.py migrate`)
+- [ ] Superuser created (`python manage.py createsuperuser`)
+- [ ] Test data seeded (opcjonalnie: `python manage.py seed_testdata`)
+
+### Test Flow
+
+#### 1. Admin Flow — Tworzenie pracownika i zaproszenie
+
+- [ ] Login to Django Admin (`http://localhost:8000/admin`)
+  - Username/password: admin credentials utworzone przez `createsuperuser`
+- [ ] Navigate to Employees (`/admin/timetracker_app/employee/`)
+- [ ] Click "Add Employee"
+- [ ] Fill form:
+  - [ ] Email: `test@example.com`
+  - [ ] Is active: checked
+  - [ ] Daily norm minutes: `480` (8 godzin)
+- [ ] Save employee
+- [ ] Select employee from list (checkbox)
+- [ ] Select action "Generate invite link" from dropdown
+- [ ] Click "Go"
+- [ ] Copy invite link/token from success message
+  - Format: `http://localhost:5173/set-password?token=<TOKEN>`
+
+#### 2. Employee Invite Flow — Ustawienie hasła
+
+- [ ] Open frontend (`http://localhost:5173`)
+- [ ] Visit invite link: `/set-password?token=<TOKEN>`
+- [ ] Verify token validation:
+  - [ ] Email is displayed: `test@example.com`
+  - [ ] Form is enabled
+- [ ] Fill password form:
+  - [ ] Password: `testpass123` (minimum 8 chars)
+  - [ ] Password confirm: `testpass123`
+- [ ] Click "Ustaw hasło" / "Set Password"
+- [ ] Verify success message: "Hasło zostało ustawione" / "Password set successfully"
+- [ ] Verify redirect to `/login`
+
+#### 3. Login Flow — Logowanie
+
+- [ ] Visit `/login` (if not already there)
+- [ ] Fill login form:
+  - [ ] Email: `test@example.com`
+  - [ ] Password: `testpass123`
+- [ ] Click "Zaloguj" / "Login"
+- [ ] Verify redirect to `/month/<current-month>`
+  - Example: `/month/2025-01`
+- [ ] Verify user info displayed:
+  - [ ] Email visible in header/navbar: `test@example.com`
+  - [ ] Logout button/link visible
+
+#### 4. Month View — Przeglądanie miesiąca
+
+- [ ] Verify month table displays:
+  - [ ] All days of month (28-31 rows depending on month)
+  - [ ] Columns: Date, Day Type (Working/Free), Working Time, Overtime, Has Entries
+- [ ] Verify day types:
+  - [ ] Weekdays (Mon-Fri): "Working" or "Robocze"
+  - [ ] Weekends (Sat-Sun): "Free" or "Wolne"
+- [ ] Verify future days:
+  - [ ] Future days are greyed out or marked as not editable
+  - [ ] Future days cannot be clicked (or redirect is blocked)
+- [ ] Navigation:
+  - [ ] Click "Poprzedni miesiąc" / "Previous Month"
+  - [ ] Verify URL changed to previous month
+  - [ ] Verify table reloaded with previous month data
+  - [ ] Click "Następny miesiąc" / "Next Month" (if not current month)
+  - [ ] Verify navigation back to current month works
+  - [ ] Verify "Next Month" button is disabled when in current month
+
+#### 5. Day View — Wprowadzanie czasu
+
+- [ ] From Month View, click on editable day (current or previous month)
+  - Example: Click on row for `2025-01-15`
+- [ ] Verify redirect to `/day/2025-01-15`
+- [ ] Verify day view loaded:
+  - [ ] Date displayed in header: `2025-01-15`
+  - [ ] Day type displayed: "Working" or "Free"
+  - [ ] Tasks list visible: "Dostępne zadania" / "Available tasks"
+- [ ] Test filters:
+  - [ ] Project phase filter/dropdown visible
+  - [ ] Department filter/dropdown visible
+  - [ ] Discipline filter/dropdown visible
+  - [ ] Search text input visible
+  - [ ] Change filter value → verify tasks list updates
+  - [ ] Enter search text → verify tasks list filters
+- [ ] Select tasks:
+  - [ ] Click "Wybierz" / "Select" on first task
+  - [ ] Verify task moves to "Wybrane zadania" / "Selected tasks"
+  - [ ] Verify task is no longer in available list (or button disabled)
+  - [ ] Select 2-3 more tasks
+  - [ ] Verify all selected tasks are in "Selected tasks" section
+- [ ] Enter durations:
+  - [ ] Fill duration for first task: `120` minutes
+  - [ ] Fill duration for second task: `180` minutes
+  - [ ] Fill duration for third task: `240` minutes
+  - [ ] Verify total displayed: `540 minutes` or `9:00 hours`
+- [ ] Save:
+  - [ ] Click "Zapisz" / "Save"
+  - [ ] Verify success message: "Zapisano" / "Saved successfully"
+  - [ ] Verify form remains editable (can modify and save again)
+
+#### 6. Month Refresh — Weryfikacja zmian
+
+- [ ] Click "Powrót" / "Back to Month" or navigate to `/month/2025-01`
+- [ ] Verify month view shows updated data:
+  - [ ] Row for `2025-01-15` has:
+    - [ ] `has_entries` indicator (checkmark/icon or "Tak"/"Yes")
+    - [ ] `working_time_raw_minutes`: `540` minutes or `9:00` hours
+    - [ ] `overtime_minutes`: calculated based on day type
+      - If Working: `max(0, 540 - 480) = 60` minutes
+      - If Free: `540` minutes
+- [ ] Verify total is correct
+
+#### 7. Validation Tests — Sprawdzenie walidacji
+
+##### 7.1 Duration = 0
+
+- [ ] Navigate to day view (editable day)
+- [ ] Select task
+- [ ] Enter duration: `0`
+- [ ] Click Save
+- [ ] Verify error message: "Duration must be greater than 0" or similar
+
+##### 7.2 Duration < 0
+
+- [ ] Enter duration: `-10`
+- [ ] Click Save
+- [ ] Verify error message: "Duration must be positive" or similar
+
+##### 7.3 Total > 1440 minutes
+
+- [ ] Select 2 tasks
+- [ ] Enter durations: `800` and `700` (total = 1500)
+- [ ] Click Save
+- [ ] Verify error message: "Total exceeds 1440 minutes (24 hours)" or similar
+
+##### 7.4 Duplicate task
+
+- [ ] Select task A
+- [ ] Try to select task A again
+- [ ] Verify task A is not available in list (or button disabled)
+
+##### 7.5 Future date
+
+- [ ] Navigate to future day (e.g., tomorrow or day after tomorrow)
+- [ ] Verify Save button is disabled
+- [ ] Verify message: "Cannot edit future dates" or similar
+
+##### 7.6 Old month (2 months ago)
+
+- [ ] Navigate to day 2 months ago (e.g., `2024-11-15`)
+- [ ] Verify Save button is disabled
+- [ ] Verify message: "Cannot edit outside edit window" or similar
+
+#### 8. Edge Cases — Przypadki graniczne
+
+##### 8.1 Exactly 1440 minutes
+
+- [ ] Navigate to editable day
+- [ ] Select task
+- [ ] Enter duration: `1440`
+- [ ] Click Save
+- [ ] Verify success (no error)
+
+##### 8.2 Last day of month
+
+- [ ] Navigate to last day of month (e.g., `2025-01-31`)
+- [ ] Select task and enter time
+- [ ] Click Save
+- [ ] Verify success
+
+##### 8.3 First day of month
+
+- [ ] Navigate to first day of month (e.g., `2025-01-01`)
+- [ ] Select task and enter time
+- [ ] Click Save
+- [ ] Verify success
+
+##### 8.4 Free day (weekend) — Overtime calculation
+
+- [ ] Navigate to Saturday or Sunday
+- [ ] Select task and enter time: `300` minutes
+- [ ] Click Save
+- [ ] Return to month view
+- [ ] Verify overtime for that day = `300` minutes (entire time is overtime)
+
+##### 8.5 Working day — Overtime calculation
+
+- [ ] Navigate to weekday
+- [ ] Select task and enter time: `500` minutes
+- [ ] Click Save
+- [ ] Return to month view
+- [ ] Verify overtime for that day = `max(0, 500 - 480) = 20` minutes
+
+#### 9. Logout — Wylogowanie
+
+- [ ] Click "Wyloguj" / "Logout" button/link
+- [ ] Verify redirect to `/login`
+- [ ] Verify session cleared:
+  - [ ] Try to navigate to `/month/2025-01`
+  - [ ] Verify redirect back to `/login` (not authorized)
+- [ ] Try to navigate to `/day/2025-01-15`
+- [ ] Verify redirect back to `/login`
+
+---
+
+### Smoke Test Summary
+
+Po zakończeniu wszystkich testów:
+
+- [ ] All critical flows work (admin → invite → login → month → day → save → refresh)
+- [ ] All validations work (duration, total, dates, edit window)
+- [ ] All edge cases handled (1440 min, month boundaries, overtime)
+- [ ] No console errors (check browser DevTools)
+- [ ] No server errors (check backend logs)
+
+### Known Issues / Notes
+
+(Miejsce na notowanie znalezionych problemów podczas testów)
+
+- Issue 1: ...
+- Issue 2: ...
+
+---
