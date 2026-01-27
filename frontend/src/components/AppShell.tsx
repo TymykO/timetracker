@@ -87,7 +87,7 @@ export function AppShell({ children }: AppShellProps) {
           )}
         </Toolbar>
       </AppBar>
-      <Container maxWidth="lg" sx={{ flex: 1, py: 4 }}>
+      <Container maxWidth={false} sx={{ flex: 1, py: 4, px: 6 }}>
         {children}
       </Container>
     </Box>
