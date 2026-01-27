@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.utils.html import format_html
 from django.urls import reverse
 from django.contrib import messages
+from django.db import transaction
 
 from timetracker_app.models import Employee, TaskCache, TimeEntry, CalendarOverride, AuthToken
 from timetracker_app.auth import password_flows
@@ -44,6 +45,38 @@ class EmployeeAdmin(admin.ModelAdmin):
             return format_html('<a href="{}">{}</a>', url, obj.user.username)
         return "-"
     user_link.short_description = "Użytkownik Django"
+    
+    def save_model(self, request, obj, form, change):
+        """
+        Nadpisuje save_model aby automatycznie tworzyć Django User dla nowego Employee.
+        
+        Dla nowego Employee:
+        - tworzy User z username=email (obsługuje kolizje przez dodanie suffiksu)
+        - ustawia email, is_active=False, password=unusable
+        - przypisuje User do Employee.user
+        - zapisuje atomowo
+        """
+        if not change:  # Nowy Employee
+            with transaction.atomic():
+                # Utwórz username z email (obsługa kolizji)
+                username = obj.email
+                suffix = 1
+                while User.objects.filter(username=username).exists():
+                    username = f"{obj.email}_{suffix}"
+                    suffix += 1
+                
+                # Utwórz User bez hasła, nieaktywny
+                user = User.objects.create_user(
+                    username=username,
+                    email=obj.email,
+                    is_active=False
+                )
+                user.set_unusable_password()
+                user.save()
+                
+                obj.user = user
+        
+        super().save_model(request, obj, form, change)
     
     def generate_invite_link(self, request, queryset):
         """Akcja: generuje invite link dla wybranych pracowników."""
