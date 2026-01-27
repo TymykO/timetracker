@@ -76,7 +76,7 @@ class TaskCache(models.Model):
         max_length=255,
         blank=True,
         null=True,
-        verbose_name="Konto"
+        verbose_name="Klient"
     )
     project = models.CharField(
         max_length=255,
@@ -106,7 +106,7 @@ class TaskCache(models.Model):
         max_length=255,
         blank=True,
         null=True,
-        verbose_name="Dyscyplina"
+        verbose_name="Branża"
     )
     task_type = models.CharField(
         max_length=255,

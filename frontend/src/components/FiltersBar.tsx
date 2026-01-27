@@ -131,11 +131,11 @@ export function FiltersBar({
 
         <Box sx={{ minWidth: 200, flex: 1 }}>
           <FormControl fullWidth size="small">
-            <InputLabel id="discipline-label">Dyscyplina</InputLabel>
+            <InputLabel id="discipline-label">Branża</InputLabel>
             <Select
               labelId="discipline-label"
               value={filters.discipline || ""}
-              label="Dyscyplina"
+              label="Branża"
               onChange={handleDisciplineChange}
             >
               <MenuItem value="">
