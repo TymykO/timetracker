@@ -47,8 +47,9 @@ function minutesToHHMM(minutes: number): string {
 }
 
 function addDays(dateStr: string, delta: number): string {
-  const date = new Date(dateStr + "T00:00:00");
-  date.setDate(date.getDate() + delta);
+  // Parse date in UTC to avoid timezone issues
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + delta));
   return date.toISOString().split("T")[0];
 }
 
@@ -56,7 +57,8 @@ function isFuture(dateStr: string): boolean {
   const target = new Date(dateStr + "T00:00:00");
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  return target > today;
+  target.setHours(0, 0, 0, 0);
+  return target.getTime() > today.getTime();
 }
 
 function formatDate(dateStr: string): string {
@@ -307,12 +309,9 @@ export default function DayPage() {
   };
 
   const handleNextDay = () => {
-    if (date) {
-      const next = addDays(date, 1);
-      if (!isFuture(next)) {
-        navigate(`/day/${next}`);
-      }
-    }
+    if (!date) return;
+    const next = addDays(date, 1);
+    navigate(`/day/${next}`);
   };
 
   const handleBackToMonth = () => {
@@ -322,7 +321,8 @@ export default function DayPage() {
     }
   };
 
-  const isNextDisabled = date ? isFuture(addDays(date, 1)) : true;
+  const nextDate = date ? addDays(date, 1) : null;
+  const isNextDisabled = !nextDate || isFuture(nextDate);
 
   // ===== Render =====
 
