@@ -64,10 +64,21 @@ function timeInputToMinutes(timeStr: string): number | "" {
   if (!timeStr || timeStr.trim() === "") return "";
   
   const parts = timeStr.split(":");
-  if (parts.length !== 2) return "";
   
-  const hours = parseInt(parts[0], 10);
-  const mins = parseInt(parts[1], 10);
+  let hours = 0;
+  let mins = 0;
+  
+  if (parts.length === 1) {
+    // Tylko liczba bez dwukropka = godziny
+    hours = parseInt(parts[0], 10);
+    mins = 0;
+  } else if (parts.length === 2) {
+    // Format h:mm
+    hours = parseInt(parts[0], 10);
+    mins = parseInt(parts[1], 10);
+  } else {
+    return "";
+  }
   
   if (isNaN(hours) || isNaN(mins)) return "";
   
@@ -120,6 +131,15 @@ function TimeInput({
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleBlur();
+      // Usuń focus z pola aby użytkownik widział efekt
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
   return (
     <TextField
       size="small"
@@ -127,6 +147,7 @@ function TimeInput({
       value={textValue}
       onChange={(e) => setTextValue(e.target.value)}
       onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
       disabled={disabled}
       error={error}
       helperText={helperText}
