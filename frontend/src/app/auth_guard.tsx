@@ -7,7 +7,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Navigate } from "react-router-dom";
+import { Alert, AlertTitle, Card, CardContent } from "@mui/material";
 import { api } from "./api_client";
+import { LoadingState } from "../components/LoadingState";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -21,11 +23,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   });
 
   if (isLoading) {
-    return (
-      <div style={{ padding: "2rem", textAlign: "center" }}>
-        Ładowanie...
-      </div>
-    );
+    return <LoadingState message="Sprawdzanie sesji..." />;
   }
 
   if (error || !user) {
@@ -34,10 +32,14 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   if (!user.is_active) {
     return (
-      <div style={{ padding: "2rem", textAlign: "center" }}>
-        <h2>Konto nieaktywne</h2>
-        <p>Skontaktuj się z administratorem.</p>
-      </div>
+      <Card sx={{ maxWidth: 600, mx: "auto", mt: 4 }}>
+        <CardContent>
+          <Alert severity="warning">
+            <AlertTitle>Konto nieaktywne</AlertTitle>
+            Twoje konto zostało dezaktywowane. Skontaktuj się z administratorem.
+          </Alert>
+        </CardContent>
+      </Card>
     );
   }
 

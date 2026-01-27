@@ -8,6 +8,17 @@
  * - Obsługa kliknięcia w wiersz
  */
 
+import {
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+} from "@mui/material";
+import CheckIcon from "@mui/icons-material/Check";
+import RemoveIcon from "@mui/icons-material/Remove";
 import type { MonthDay } from "../types/dto";
 
 interface Props {
@@ -35,72 +46,50 @@ function formatDate(dateStr: string): string {
 
 export function MonthTable({ days, onDayClick }: Props) {
   return (
-    <table style={styles.table}>
-      <thead>
-        <tr>
-          <th style={styles.th}>Data</th>
-          <th style={styles.th}>Typ dnia</th>
-          <th style={styles.th}>Czas pracy</th>
-          <th style={styles.th}>Nadgodziny</th>
-          <th style={styles.th}>Wpisy</th>
-        </tr>
-      </thead>
-      <tbody>
-        {days.map((day) => {
-          const isClickable = !day.is_future;
-          
-          return (
-            <tr
-              key={day.date}
-              onClick={() => isClickable && onDayClick(day.date)}
-              style={{
-                ...styles.tr,
-                cursor: isClickable ? 'pointer' : 'not-allowed',
-                opacity: day.is_future ? 0.5 : 1,
-                backgroundColor: day.is_future ? '#f5f5f5' : 'transparent',
-              }}
-              onMouseEnter={(e) => {
-                if (isClickable) {
-                  e.currentTarget.style.backgroundColor = '#e3f2fd';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (isClickable) {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }
-              }}
-            >
-              <td style={styles.td}>{formatDate(day.date)}</td>
-              <td style={styles.td}>{day.day_type === "Working" ? "Roboczy" : "Wolny"}</td>
-              <td style={styles.td}>{minutesToHHMM(day.working_time_raw_minutes)}</td>
-              <td style={styles.td}>{minutesToHHMM(day.overtime_minutes)}</td>
-              <td style={styles.td}>{day.has_entries ? '✓' : '—'}</td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <TableContainer component={Paper}>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>Data</TableCell>
+            <TableCell>Typ dnia</TableCell>
+            <TableCell>Czas pracy</TableCell>
+            <TableCell>Nadgodziny</TableCell>
+            <TableCell align="center">Wpisy</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {days.map((day) => {
+            const isClickable = !day.is_future;
+            
+            return (
+              <TableRow
+                key={day.date}
+                onClick={() => isClickable && onDayClick(day.date)}
+                sx={{
+                  cursor: isClickable ? 'pointer' : 'not-allowed',
+                  opacity: day.is_future ? 0.5 : 1,
+                  backgroundColor: day.is_future ? 'action.disabledBackground' : 'transparent',
+                  '&:hover': isClickable ? {
+                    backgroundColor: 'action.hover',
+                  } : {},
+                }}
+              >
+                <TableCell>{formatDate(day.date)}</TableCell>
+                <TableCell>{day.day_type === "Working" ? "Roboczy" : "Wolny"}</TableCell>
+                <TableCell>{minutesToHHMM(day.working_time_raw_minutes)}</TableCell>
+                <TableCell>{minutesToHHMM(day.overtime_minutes)}</TableCell>
+                <TableCell align="center">
+                  {day.has_entries ? (
+                    <CheckIcon fontSize="small" color="success" />
+                  ) : (
+                    <RemoveIcon fontSize="small" color="disabled" />
+                  )}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
-
-// Podstawowe style inline
-const styles = {
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse' as const,
-    marginTop: '1rem',
-  },
-  th: {
-    textAlign: 'left' as const,
-    padding: '0.75rem',
-    borderBottom: '2px solid #ddd',
-    fontWeight: 600,
-  },
-  tr: {
-    transition: 'background-color 0.2s',
-  },
-  td: {
-    padding: '0.75rem',
-    borderBottom: '1px solid #eee',
-  },
-};

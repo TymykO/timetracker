@@ -9,6 +9,15 @@
 
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  Box,
+  Card,
+  CardContent,
+  TextField,
+  Button,
+  Typography,
+  Alert,
+} from "@mui/material";
 import { api } from "../../app/api_client";
 
 export default function LoginPage() {
@@ -44,147 +53,82 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.formCard}>
-        <h1 style={styles.title}>Logowanie</h1>
-        
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.fieldGroup}>
-            <label htmlFor="email" style={styles.label}>
-              Email:
-            </label>
-            <input
+    <Box
+      display="flex"
+      justifyContent="center"
+      alignItems="center"
+      minHeight="100vh"
+      sx={{ backgroundColor: 'grey.100', p: 2 }}
+    >
+      <Card sx={{ width: '100%', maxWidth: 400 }}>
+        <CardContent sx={{ p: 3 }}>
+          <Typography variant="h4" component="h1" align="center" gutterBottom>
+            Logowanie
+          </Typography>
+          
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            <TextField
               id="email"
+              label="Email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              fullWidth
               autoComplete="email"
               placeholder="test@example.com"
-              style={styles.input}
               disabled={loading}
+              margin="normal"
             />
-          </div>
 
-          <div style={styles.fieldGroup}>
-            <label htmlFor="password" style={styles.label}>
-              Hasło:
-            </label>
-            <input
+            <TextField
               id="password"
+              label="Hasło"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              fullWidth
               autoComplete="current-password"
               placeholder="••••••••"
-              style={styles.input}
               disabled={loading}
+              margin="normal"
             />
-          </div>
 
-          {error && (
-            <div style={styles.error}>
-              {error}
-            </div>
-          )}
+            {error && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {error}
+              </Alert>
+            )}
 
-          <button 
-            type="submit" 
-            style={{
-              ...styles.button,
-              opacity: loading ? 0.6 : 1,
-              cursor: loading ? 'not-allowed' : 'pointer',
+            <Button
+              type="submit"
+              variant="contained"
+              fullWidth
+              size="large"
+              disabled={loading}
+              sx={{ mt: 3 }}
+            >
+              {loading ? "Logowanie..." : "Zaloguj się"}
+            </Button>
+          </Box>
+
+          <Box
+            sx={{
+              mt: 3,
+              p: 2,
+              backgroundColor: 'grey.100',
+              borderRadius: 1,
             }}
-            disabled={loading}
           >
-            {loading ? "Logowanie..." : "Zaloguj się"}
-          </button>
-        </form>
-
-        <div style={styles.hint}>
-          <strong>Dane testowe:</strong><br />
-          Email: test@example.com<br />
-          Hasło: testpass123
-        </div>
-      </div>
-    </div>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Dane testowe:</strong><br />
+              Email: test@example.com<br />
+              Hasło: testpass123
+            </Typography>
+          </Box>
+        </CardContent>
+      </Card>
+    </Box>
   );
 }
-
-// Podstawowe style
-const styles = {
-  container: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: "100vh",
-    backgroundColor: "#f5f5f5",
-    padding: "1rem",
-  },
-  formCard: {
-    backgroundColor: "white",
-    padding: "2rem",
-    borderRadius: "8px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-    width: "100%",
-    maxWidth: "400px",
-  },
-  title: {
-    margin: "0 0 1.5rem 0",
-    fontSize: "1.8rem",
-    textAlign: "center" as const,
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "1rem",
-  },
-  fieldGroup: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "0.25rem",
-  },
-  label: {
-    fontSize: "0.9rem",
-    fontWeight: 500,
-    color: "#333",
-  },
-  input: {
-    padding: "0.75rem",
-    fontSize: "1rem",
-    border: "1px solid #ddd",
-    borderRadius: "4px",
-    outline: "none",
-    transition: "border-color 0.2s",
-  },
-  button: {
-    padding: "0.75rem",
-    fontSize: "1rem",
-    fontWeight: 600,
-    color: "white",
-    backgroundColor: "#1976d2",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-    transition: "background-color 0.2s",
-    marginTop: "0.5rem",
-  },
-  error: {
-    padding: "0.75rem",
-    backgroundColor: "#ffebee",
-    color: "#c62828",
-    borderRadius: "4px",
-    fontSize: "0.9rem",
-    textAlign: "center" as const,
-  },
-  hint: {
-    marginTop: "1.5rem",
-    padding: "1rem",
-    backgroundColor: "#f5f5f5",
-    borderRadius: "4px",
-    fontSize: "0.85rem",
-    color: "#666",
-    lineHeight: "1.6",
-  },
-};
