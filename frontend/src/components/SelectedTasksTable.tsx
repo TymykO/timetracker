@@ -22,8 +22,11 @@ import {
   IconButton,
   Alert,
   Box,
+  InputAdornment,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import type { Task } from "../types/dto";
 
 interface SelectedEntry {
@@ -45,6 +48,34 @@ function minutesToHHMM(minutes: number): string {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+// Helper: konwersja minut na format HH:MM dla inputu type="time"
+function minutesToTimeInput(minutes: number | ""): string {
+  if (minutes === "") return "";
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+// Helper: konwersja h:mm na minuty z zaokrągleniem do 30 min
+function timeInputToMinutes(timeStr: string): number | "" {
+  if (!timeStr || timeStr.trim() === "") return "";
+  
+  const parts = timeStr.split(":");
+  if (parts.length !== 2) return "";
+  
+  const hours = parseInt(parts[0], 10);
+  const mins = parseInt(parts[1], 10);
+  
+  if (isNaN(hours) || isNaN(mins)) return "";
+  
+  let totalMinutes = hours * 60 + mins;
+  
+  // Zaokrąglenie do najbliższych 30 minut
+  totalMinutes = Math.round(totalMinutes / 30) * 30;
+  
+  return totalMinutes;
 }
 
 export function SelectedTasksTable({
@@ -76,7 +107,7 @@ export function SelectedTasksTable({
               <TableHead>
                 <TableRow>
                   <TableCell>Task</TableCell>
-                  <TableCell width={120}>Czas (min)</TableCell>
+                  <TableCell width={140}>Czas (h:mm)</TableCell>
                   <TableCell width={60} align="center">
                     Akcje
                   </TableCell>
@@ -98,21 +129,60 @@ export function SelectedTasksTable({
                       <TableCell>
                         <TextField
                           size="small"
-                          type="number"
-                          value={entry.duration}
-                          onChange={(e) => onDurationChange(taskId, e.target.value)}
+                          type="text"
+                          value={minutesToTimeInput(entry.duration)}
+                          onChange={(e) => {
+                            const minutes = timeInputToMinutes(e.target.value);
+                            onDurationChange(taskId, String(minutes));
+                          }}
+                          onBlur={(e) => {
+                            // Zaokrąglenie przy opuszczeniu pola
+                            const minutes = timeInputToMinutes(e.target.value);
+                            if (minutes !== "") {
+                              onDurationChange(taskId, String(minutes));
+                            }
+                          }}
                           disabled={disabled}
                           error={hasError}
                           helperText={
                             isEmpty
-                              ? "Wymagane"
+                              ? "Wymagane (np. 2:00, 4:30)"
                               : isZero
                               ? "Musi być > 0"
                               : ""
                           }
-                          inputProps={{
-                            min: 1,
-                            step: 1,
+                          placeholder="0:00"
+                          InputProps={{
+                            endAdornment: !disabled && (
+                              <InputAdornment position="end">
+                                <Box sx={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => {
+                                      const current = typeof entry.duration === "number" ? entry.duration : 0;
+                                      const newValue = current + 30;
+                                      if (newValue <= 1440) {
+                                        onDurationChange(taskId, String(newValue));
+                                      }
+                                    }}
+                                    sx={{ p: 0, height: 16 }}
+                                  >
+                                    <ArrowDropUpIcon fontSize="small" />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => {
+                                      const current = typeof entry.duration === "number" ? entry.duration : 0;
+                                      const newValue = Math.max(0, current - 30);
+                                      onDurationChange(taskId, String(newValue));
+                                    }}
+                                    sx={{ p: 0, height: 16 }}
+                                  >
+                                    <ArrowDropDownIcon fontSize="small" />
+                                  </IconButton>
+                                </Box>
+                              </InputAdornment>
+                            ),
                           }}
                           fullWidth
                         />
@@ -137,7 +207,7 @@ export function SelectedTasksTable({
 
           <Box sx={{ mt: 2, p: 2, backgroundColor: "action.hover", borderRadius: 1 }}>
             <Typography variant="body1" fontWeight="bold">
-              Suma: {minutesToHHMM(totalMinutes)} ({totalMinutes} min)
+              Suma: {minutesToHHMM(totalMinutes)}
             </Typography>
           </Box>
 
