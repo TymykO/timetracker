@@ -17,6 +17,7 @@ import {
   Button,
   Typography,
   Alert,
+  Stack,
 } from "@mui/material";
 import { api } from "../../app/api_client";
 import { LoadingState } from "../../components/LoadingState";
@@ -116,10 +117,28 @@ export default function ResetPasswordPage() {
         sx={{ backgroundColor: 'grey.100', p: 2 }}
       >
         <Card sx={{ width: '100%', maxWidth: 400 }}>
-          <CardContent>
-            <Alert severity="error">
+          <CardContent sx={{ p: 3 }}>
+            <Alert severity="error" sx={{ mb: 3 }}>
               {error || "Token jest nieprawidłowy"}
             </Alert>
+            <Stack spacing={2}>
+              <Button
+                variant="outlined"
+                fullWidth
+                size="large"
+                onClick={() => navigate("/login")}
+              >
+                Wróć do logowania
+              </Button>
+              <Button
+                variant="text"
+                fullWidth
+                size="large"
+                onClick={() => navigate("/forgot-password")}
+              >
+                Poproś o nowy link
+              </Button>
+            </Stack>
           </CardContent>
         </Card>
       </Box>

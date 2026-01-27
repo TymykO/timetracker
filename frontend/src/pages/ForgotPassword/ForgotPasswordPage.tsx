@@ -8,6 +8,7 @@
  */
 
 import { useState, type FormEvent } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import {
   Box,
   Card,
@@ -16,6 +17,7 @@ import {
   Button,
   Typography,
   Alert,
+  Link,
 } from "@mui/material";
 import { api } from "../../app/api_client";
 
@@ -66,10 +68,22 @@ export default function ForgotPasswordPage() {
           </Typography>
 
           {success ? (
-            <Alert severity="success">
-              Link do resetowania hasła został wysłany na podany adres email.
-              Sprawdź swoją skrzynkę pocztową.
-            </Alert>
+            <>
+              <Alert severity="success">
+                Link do resetowania hasła został wysłany na podany adres email.
+                Sprawdź swoją skrzynkę pocztową.
+              </Alert>
+              <Box sx={{ mt: 3, textAlign: 'center' }}>
+                <Link
+                  component={RouterLink}
+                  to="/login"
+                  variant="body2"
+                  sx={{ textDecoration: 'none' }}
+                >
+                  Wróć do logowania
+                </Link>
+              </Box>
+            </>
           ) : (
             <Box component="form" onSubmit={handleSubmit}>
               <TextField
@@ -102,6 +116,17 @@ export default function ForgotPasswordPage() {
               >
                 {loading ? "Wysyłanie..." : "Wyślij link"}
               </Button>
+
+              <Box sx={{ mt: 2, textAlign: 'center' }}>
+                <Link
+                  component={RouterLink}
+                  to="/login"
+                  variant="body2"
+                  sx={{ textDecoration: 'none' }}
+                >
+                  Wróć do logowania
+                </Link>
+              </Box>
             </Box>
           )}
         </CardContent>

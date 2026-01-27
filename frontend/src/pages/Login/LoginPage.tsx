@@ -8,7 +8,7 @@
  */
 
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link as RouterLink } from "react-router-dom";
 import {
   Box,
   Card,
@@ -17,6 +17,7 @@ import {
   Button,
   Typography,
   Alert,
+  Link,
 } from "@mui/material";
 import { api } from "../../app/api_client";
 
@@ -111,6 +112,17 @@ export default function LoginPage() {
             >
               {loading ? "Logowanie..." : "Zaloguj się"}
             </Button>
+
+            <Box sx={{ mt: 2, textAlign: 'center' }}>
+              <Link
+                component={RouterLink}
+                to="/forgot-password"
+                variant="body2"
+                sx={{ textDecoration: 'none' }}
+              >
+                Zapomniałeś hasła?
+              </Link>
+            </Box>
           </Box>
 
           <Box

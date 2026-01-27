@@ -116,10 +116,18 @@ export default function SetPasswordPage() {
         sx={{ backgroundColor: 'grey.100', p: 2 }}
       >
         <Card sx={{ width: '100%', maxWidth: 400 }}>
-          <CardContent>
-            <Alert severity="error">
+          <CardContent sx={{ p: 3 }}>
+            <Alert severity="error" sx={{ mb: 3 }}>
               {error || "Token jest nieprawidłowy"}
             </Alert>
+            <Button
+              variant="outlined"
+              fullWidth
+              size="large"
+              onClick={() => navigate("/login")}
+            >
+              Wróć do logowania
+            </Button>
           </CardContent>
         </Card>
       </Box>
