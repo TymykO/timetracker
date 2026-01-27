@@ -62,6 +62,11 @@ export function AppShell({ children }: AppShellProps) {
     }
   };
 
+  // Dla publicznych stron nie renderuj AppBar ani Container
+  if (isPublicRoute) {
+    return <>{children}</>;
+  }
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <AppBar position="static">

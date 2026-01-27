@@ -6,7 +6,7 @@
  * - Chronione: /month/:yearMonth, /day/:date
  */
 
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthGuard } from "./auth_guard";
 
 // Page imports
@@ -23,8 +23,7 @@ export function AppRouter() {
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
   return (
-    <BrowserRouter>
-      <Routes>
+    <Routes>
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/set-password" element={<SetPasswordPage />} />
@@ -53,6 +52,5 @@ export function AppRouter() {
         <Route path="/" element={<Navigate to={`/month/${currentMonth}`} replace />} />
         <Route path="*" element={<Navigate to={`/month/${currentMonth}`} replace />} />
       </Routes>
-    </BrowserRouter>
   );
 }
