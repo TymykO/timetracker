@@ -9,6 +9,7 @@
  * - Footer z sumą i błędem jeśli suma > 1440
  */
 
+import { useState, useEffect } from "react";
 import {
   Paper,
   Typography,
@@ -78,6 +79,85 @@ function timeInputToMinutes(timeStr: string): number | "" {
   return totalMinutes;
 }
 
+// Komponent pomocniczy z lokalnym stanem dla inputu czasu
+function TimeInput({
+  value,
+  onChange,
+  onIncrement,
+  onDecrement,
+  disabled,
+  error,
+  helperText,
+}: {
+  value: number | "";
+  onChange: (minutes: number | "") => void;
+  onIncrement: () => void;
+  onDecrement: () => void;
+  disabled: boolean;
+  error: boolean;
+  helperText: string;
+}) {
+  // Lokalny stan dla tekstu w inpucie
+  const [textValue, setTextValue] = useState(minutesToTimeInput(value));
+
+  // Synchronizuj lokalny stan gdy parent value się zmienia (np. przez strzałki)
+  useEffect(() => {
+    setTextValue(minutesToTimeInput(value));
+  }, [value]);
+
+  const handleBlur = () => {
+    // Konwertuj tekst na minuty przy opuszczeniu pola
+    const minutes = timeInputToMinutes(textValue);
+    if (minutes !== "") {
+      onChange(minutes);
+      setTextValue(minutesToTimeInput(minutes)); // Normalizuj format
+    } else if (textValue.trim() === "") {
+      onChange("");
+      setTextValue("");
+    } else {
+      // Jeśli format niepoprawny, przywróć poprzednią wartość
+      setTextValue(minutesToTimeInput(value));
+    }
+  };
+
+  return (
+    <TextField
+      size="small"
+      type="text"
+      value={textValue}
+      onChange={(e) => setTextValue(e.target.value)}
+      onBlur={handleBlur}
+      disabled={disabled}
+      error={error}
+      helperText={helperText}
+      placeholder="0:00"
+      InputProps={{
+        endAdornment: !disabled && (
+          <InputAdornment position="end">
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 0 }}>
+              <IconButton
+                size="small"
+                onClick={onIncrement}
+                sx={{ p: 0, height: 16 }}
+              >
+                <ArrowDropUpIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={onDecrement}
+                sx={{ p: 0, height: 16 }}
+              >
+                <ArrowDropDownIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          </InputAdornment>
+        ),
+      }}
+      fullWidth
+    />
+  );
+}
+
 export function SelectedTasksTable({
   selectedTasks,
   onDurationChange,
@@ -127,20 +207,20 @@ export function SelectedTasksTable({
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <TextField
-                          size="small"
-                          type="text"
-                          value={minutesToTimeInput(entry.duration)}
-                          onChange={(e) => {
-                            const minutes = timeInputToMinutes(e.target.value);
-                            onDurationChange(taskId, String(minutes));
-                          }}
-                          onBlur={(e) => {
-                            // Zaokrąglenie przy opuszczeniu pola
-                            const minutes = timeInputToMinutes(e.target.value);
-                            if (minutes !== "") {
-                              onDurationChange(taskId, String(minutes));
+                        <TimeInput
+                          value={entry.duration}
+                          onChange={(minutes) => onDurationChange(taskId, String(minutes))}
+                          onIncrement={() => {
+                            const current = typeof entry.duration === "number" ? entry.duration : 0;
+                            const newValue = current + 30;
+                            if (newValue <= 1440) {
+                              onDurationChange(taskId, String(newValue));
                             }
+                          }}
+                          onDecrement={() => {
+                            const current = typeof entry.duration === "number" ? entry.duration : 0;
+                            const newValue = Math.max(0, current - 30);
+                            onDurationChange(taskId, String(newValue));
                           }}
                           disabled={disabled}
                           error={hasError}
@@ -151,40 +231,6 @@ export function SelectedTasksTable({
                               ? "Musi być > 0"
                               : ""
                           }
-                          placeholder="0:00"
-                          InputProps={{
-                            endAdornment: !disabled && (
-                              <InputAdornment position="end">
-                                <Box sx={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => {
-                                      const current = typeof entry.duration === "number" ? entry.duration : 0;
-                                      const newValue = current + 30;
-                                      if (newValue <= 1440) {
-                                        onDurationChange(taskId, String(newValue));
-                                      }
-                                    }}
-                                    sx={{ p: 0, height: 16 }}
-                                  >
-                                    <ArrowDropUpIcon fontSize="small" />
-                                  </IconButton>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => {
-                                      const current = typeof entry.duration === "number" ? entry.duration : 0;
-                                      const newValue = Math.max(0, current - 30);
-                                      onDurationChange(taskId, String(newValue));
-                                    }}
-                                    sx={{ p: 0, height: 16 }}
-                                  >
-                                    <ArrowDropDownIcon fontSize="small" />
-                                  </IconButton>
-                                </Box>
-                              </InputAdornment>
-                            ),
-                          }}
-                          fullWidth
                         />
                       </TableCell>
                       <TableCell align="center">
