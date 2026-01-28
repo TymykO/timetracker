@@ -104,7 +104,7 @@ class TimeEntryDTO:
     task_id: int
     task_display_name: str
     duration_minutes_raw: int
-    billable_half_hours: int
+    hours_decimal: str  # Decimal as string for JSON
     
     def to_dict(self):
         return asdict(self)

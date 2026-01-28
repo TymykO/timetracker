@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
+from decimal import Decimal
 
 
 class Employee(models.Model):
@@ -165,9 +166,11 @@ class TimeEntry(models.Model):
         validators=[MinValueValidator(1)],
         verbose_name="Czas trwania (minuty)"
     )
-    billable_half_hours = models.PositiveIntegerField(
-        validators=[MinValueValidator(1)],
-        verbose_name="Rozliczalne półgodziny"
+    hours_decimal = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.5'))],
+        verbose_name="Godziny rozliczalne"
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -196,10 +199,10 @@ class TimeEntry(models.Model):
                 condition=models.Q(duration_minutes_raw__gt=0),
                 name="check_duration_positive"
             ),
-            # Walidacja: rozliczalne półgodziny >= 1
+            # Walidacja: godziny rozliczalne >= 0.5
             models.CheckConstraint(
-                condition=models.Q(billable_half_hours__gte=1),
-                name="check_billable_min_one"
+                condition=models.Q(hours_decimal__gte=Decimal('0.5')),
+                name="check_hours_decimal_min_half"
             ),
         ]
         

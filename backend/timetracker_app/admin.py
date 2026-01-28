@@ -166,7 +166,7 @@ class TaskCacheAdmin(admin.ModelAdmin):
 class TimeEntryAdmin(admin.ModelAdmin):
     """Admin dla modelu TimeEntry."""
     
-    list_display = ["employee", "work_date", "task", "duration_minutes_raw", "billable_half_hours", "created_at"]
+    list_display = ["employee", "work_date", "task", "duration_minutes_raw", "hours_decimal", "created_at"]
     list_filter = ["work_date", "employee", "created_at"]
     search_fields = ["employee__email", "task__display_name"]
     readonly_fields = ["created_at", "updated_at"]
@@ -177,7 +177,7 @@ class TimeEntryAdmin(admin.ModelAdmin):
             "fields": ("employee", "task", "work_date")
         }),
         ("Czas", {
-            "fields": ("duration_minutes_raw", "billable_half_hours")
+            "fields": ("duration_minutes_raw", "hours_decimal")
         }),
         ("Metadane", {
             "fields": ("created_at", "updated_at"),

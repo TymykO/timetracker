@@ -11,6 +11,7 @@ Odpowiada za:
 from datetime import date, timedelta
 from typing import List
 from math import ceil
+from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Sum
@@ -53,26 +54,31 @@ class DayTotalExceededError(Exception):
 
 # === Helpery obliczeniowe ===
 
-def _calculate_billable_half_hours(raw_minutes: int) -> int:
+def _calculate_hours_decimal(raw_minutes: int) -> Decimal:
     """
-    Oblicza liczbę rozliczalnych półgodzin z surowych minut.
+    Oblicza godziny rozliczalne z surowych minut (zaokrąglenie CEILING do 0.5h).
     
-    Zasada: ceil(raw_minutes / 30), minimum 1.
+    Formuła: ceil((minutes / 60) * 2) / 2
+    
     Przykłady:
-    - 1-30 min -> 1 półgodzina
-    - 31-60 min -> 2 półgodziny
-    - 45 min -> 2 półgodziny
+    - 1 min -> 0.5h
+    - 30 min -> 0.5h
+    - 31 min -> 1.0h
+    - 61 min -> 1.5h
+    - 120 min -> 2.0h
     
     Args:
         raw_minutes: Surowe minuty (>0)
         
     Returns:
-        Liczba półgodzin (>=1)
+        Godziny dziesiętne zaokrąglone do 0.5h (>=0.5)
     """
     if raw_minutes <= 0:
-        return 1  # Fallback, ale normalnie duration > 0 jest wymagane
+        return Decimal('0.5')  # Minimum
     
-    return max(1, ceil(raw_minutes / 30))
+    # Formuła: ceil((minutes / 60) * 2) / 2
+    half_hours_count = ceil((raw_minutes / 60) * 2)
+    return Decimal(half_hours_count) / Decimal('2')
 
 
 def _calculate_overtime(day_raw_sum: int, day_type: str, employee_norm: int) -> int:
@@ -192,7 +198,7 @@ def get_day(employee: Employee, work_date: date) -> DayDTO:
             task_id=entry.task.id,
             task_display_name=entry.task.display_name,
             duration_minutes_raw=entry.duration_minutes_raw,
-            billable_half_hours=entry.billable_half_hours
+            hours_decimal=str(entry.hours_decimal)
         ).to_dict()
         for entry in entries_qs
     ]
@@ -418,14 +424,14 @@ def save_day(employee: Employee, work_date: date, items: List[SaveDayItemRequest
         
         # 9. CREATE/UPDATE z payload
         for item in items:
-            billable = _calculate_billable_half_hours(item.duration_minutes_raw)
+            hours_decimal = _calculate_hours_decimal(item.duration_minutes_raw)
             
             if item.task_id in existing_by_task:
                 # UPDATE
                 entry = existing_by_task[item.task_id]
                 entry.duration_minutes_raw = item.duration_minutes_raw
-                entry.billable_half_hours = billable
-                entry.save(update_fields=['duration_minutes_raw', 'billable_half_hours', 'updated_at'])
+                entry.hours_decimal = hours_decimal
+                entry.save(update_fields=['duration_minutes_raw', 'hours_decimal', 'updated_at'])
             else:
                 # CREATE
                 task = TaskCache.objects.get(id=item.task_id)
@@ -434,7 +440,7 @@ def save_day(employee: Employee, work_date: date, items: List[SaveDayItemRequest
                     task=task,
                     work_date=work_date,
                     duration_minutes_raw=item.duration_minutes_raw,
-                    billable_half_hours=billable
+                    hours_decimal=hours_decimal
                 )
         
         # 10. DELETE entries nie ma w payload
