@@ -189,7 +189,58 @@ Recommended endpoints (names can vary but keep semantics):
 
 ---
 
-## 9) Outbox + Worker rules
+## 9) Security principles (implemented)
+
+### Session & Cookie Security
+- **HttpOnly cookies**: Session cookies are HttpOnly (cannot be accessed by JavaScript) to prevent XSS attacks
+- **SameSite=Lax**: Both session and CSRF cookies use `SameSite=Lax` to prevent CSRF attacks
+  - Cookies are sent only for same-site requests and top-level navigations
+  - This protects against cross-site request forgery without breaking normal navigation
+- **Secure flag in production**: Cookies are sent only over HTTPS in production (`SESSION_COOKIE_SECURE = not DEBUG`)
+- **Session timeout**: Sessions expire after 14 days (`SESSION_COOKIE_AGE = 86400 * 14`)
+
+### CSRF Protection
+- **Django CSRF middleware**: Enabled globally for state-changing requests (POST/PUT/DELETE/PATCH)
+- **CSRF token readable by frontend**: `CSRF_COOKIE_HTTPONLY = False` allows SPA to read the token
+  - Frontend reads `csrftoken` cookie and sends it as `X-CSRFToken` header
+  - This is safe because the cookie itself is still protected by SameSite policy
+- **Trusted origins**: `CSRF_TRUSTED_ORIGINS` whitelist prevents CSRF from unexpected origins
+
+### CORS Configuration
+- **Credentials allowed**: `CORS_ALLOW_CREDENTIALS = True` permits cookie-based auth with SPA
+- **Explicit origin whitelist**: `CORS_ALLOWED_ORIGINS` lists allowed frontend origins
+  - Dev: `http://localhost:5173` (Vite default)
+  - Production: configured via environment variable
+- **No wildcard origins**: Never use `CORS_ALLOWED_ORIGINS = ['*']` with credentials
+
+### Password Security
+- **Django password hashing**: Uses PBKDF2 SHA256 by default (secure, industry-standard)
+- **No raw tokens stored**: Invite/reset tokens are hashed before storage
+- **One-time tokens**: Tokens are marked as `used_at` after first use
+- **Token expiration**: Invite tokens expire after 24h, reset tokens after 1h
+
+### Authorization
+- **Admin-only provisioning**: Only admins can create employee accounts (no public registration)
+- **Active status check**: Inactive employees cannot login or use the API
+- **Employee scope**: All timesheet operations are automatically scoped to logged-in employee
+
+### Input Validation
+- **DB constraints as safety net**: Unique constraints, check constraints at DB level
+- **Service layer validation**: Domain rules enforced before DB operations
+- **API parameter validation**: DTOs validate input before passing to services
+
+### Common Pitfalls to Avoid
+- ❌ **Don't disable CSRF for convenience**: Use `@csrf_exempt` only for specific public endpoints if needed
+- ❌ **Don't use SameSite=None in production**: Only needed for cross-site scenarios (not our case)
+- ❌ **Don't store raw tokens**: Always hash sensitive tokens before DB storage
+- ❌ **Don't trust client-side validation alone**: Always validate on backend
+
+### IDE Browser Tab Limitation
+**Note**: IDE embedded browsers (like Cursor Browser Tab) may not work with `SameSite=Lax` cookies due to different security context. This is expected and affects only development workflow. Always test in external browsers (Chrome/Firefox/Edge) where cookies work correctly.
+
+---
+
+## 10) Outbox + Worker rules
 
 - Enqueue outbox jobs from service methods (not from API views).
 - Worker:
@@ -201,7 +252,7 @@ Recommended endpoints (names can vary but keep semantics):
 
 ---
 
-## 10) Testing rules
+## 11) Testing rules
 
 Minimum test coverage:
 - `TimesheetService.save_day()`:

@@ -300,6 +300,39 @@ No public registration exists in MVP.
 
 ---
 
+## 🛡️ Security features
+
+TimeTracker implements industry-standard security practices:
+
+### Session & Cookie Security
+- **HttpOnly cookies** - session cookies inaccessible to JavaScript (XSS protection)
+- **SameSite=Lax** - cookies sent only for same-site requests (CSRF protection)
+- **Secure flag in production** - cookies transmitted only over HTTPS
+- **14-day session expiration** - automatic logout after inactivity
+
+### CSRF Protection
+- Django CSRF middleware enabled for all state-changing requests
+- CSRF token validation for POST/PUT/DELETE/PATCH operations
+- Whitelisted trusted origins only
+
+### Password & Token Security
+- **PBKDF2 SHA256** password hashing (Django default)
+- **Hashed tokens** - invite/reset tokens never stored in plain text
+- **One-time tokens** - automatically invalidated after use
+- **Time-limited tokens** - invite (24h), reset (1h)
+
+### Authorization
+- **Admin-only provisioning** - no public registration
+- **Active status enforcement** - inactive employees cannot access system
+- **Automatic employee scoping** - users see only their own data
+
+### Development Note
+⚠️ **IDE Browser Tab Limitation**: Embedded browsers in IDEs (e.g., Cursor Browser Tab) may not work correctly with `SameSite=Lax` cookies due to different security contexts. This is expected behavior and affects only development workflow. Always test in external browsers (Chrome, Firefox, Edge).
+
+For detailed security implementation, see [`backend/AGENTS.md`](backend/AGENTS.md#9-security-principles-implemented).
+
+---
+
 ## ✅ Development guidelines (short)
 
 * Read `AGENTS.md` files before making changes
