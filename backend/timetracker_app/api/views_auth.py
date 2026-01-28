@@ -89,9 +89,10 @@ def login_view(request):
     # Sprawdź czy employee istnieje i jest aktywny
     try:
         employee = user.employee
+        
         if not employee.is_active:
             return error_response("Konto nieaktywne.", 403)
-    except Exception:
+    except Exception as e:
         return error_response("Nieprawidłowy email lub hasło.", 401)
     
     # Utwórz sesję
