@@ -10,6 +10,7 @@ Testuje wszystkie edge cases zgodnie z wymaganiami domenowymi:
 """
 
 from datetime import date, timedelta
+from decimal import Decimal
 from django.test import TestCase
 from django.contrib.auth.models import User
 from freezegun import freeze_time
@@ -20,7 +21,7 @@ from timetracker_app.services.timesheet_service import (
     get_day, get_month_summary, save_day,
     FutureDateError, NotEditableError, InvalidDurationError,
     DuplicateTaskInPayloadError, DayTotalExceededError,
-    _calculate_billable_half_hours, _calculate_overtime, _is_editable
+    _calculate_hours_decimal, _calculate_overtime, _is_editable
 )
 from timetracker_app.api.schemas import SaveDayItemRequest
 
@@ -179,7 +180,7 @@ class TimesheetServiceTestCase(TestCase):
             task=self.task1,
             work_date=work_date,
             duration_minutes_raw=120,
-            billable_half_hours=4
+            hours_decimal=Decimal('2.0')
         )
         
         # Próba utworzenia duplikatu przez ORM (pominięcie walidacji serwisu)
@@ -189,24 +190,25 @@ class TimesheetServiceTestCase(TestCase):
                 task=self.task1,
                 work_date=work_date,
                 duration_minutes_raw=180,
-                billable_half_hours=6
+                hours_decimal=Decimal('3.0')
             )
     
     @freeze_time("2025-03-15 12:00:00", tz_offset=1)
-    def test_db_constraint_billable_half_hours_min_one(self):
-        """Test 8d: Constraint DB wymaga billable_half_hours >= 1."""
+    def test_db_constraint_hours_decimal_min_half(self):
+        """Test 8d: Constraint DB wymaga hours_decimal >= 0.5."""
         from django.db import IntegrityError
+        from decimal import Decimal
         
         work_date = date(2025, 3, 10)
         
-        # Próba utworzenia entry z billable_half_hours=0 przez ORM
+        # Próba utworzenia entry z hours_decimal=0.0 przez ORM
         with self.assertRaises(IntegrityError):
             TimeEntry.objects.create(
                 employee=self.employee,
                 task=self.task1,
                 work_date=work_date,
                 duration_minutes_raw=1,  # Technicznie valid duration
-                billable_half_hours=0   # Ale billable < 1 -> constraint fail
+                hours_decimal=Decimal('0.0')   # Ale hours_decimal < 0.5 -> constraint fail
             )
     
     # === Tests dla save_day() - CRUD logic ===
@@ -228,7 +230,7 @@ class TimesheetServiceTestCase(TestCase):
         
         entry1 = entries.get(task=self.task1)
         self.assertEqual(entry1.duration_minutes_raw, 120)
-        self.assertEqual(entry1.billable_half_hours, 4)  # ceil(120/30)=4
+        self.assertEqual(entry1.hours_decimal, Decimal('2.0'))  # 120min -> 2.0h
     
     @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_updates_existing_entries(self):
@@ -241,7 +243,7 @@ class TimesheetServiceTestCase(TestCase):
             task=self.task1,
             work_date=work_date,
             duration_minutes_raw=60,
-            billable_half_hours=2
+            hours_decimal=Decimal('1.0')
         )
         
         # Update z nową wartością
@@ -251,7 +253,7 @@ class TimesheetServiceTestCase(TestCase):
         self.assertTrue(result.success)
         entry = TimeEntry.objects.get(employee=self.employee, work_date=work_date, task=self.task1)
         self.assertEqual(entry.duration_minutes_raw, 150)
-        self.assertEqual(entry.billable_half_hours, 5)  # ceil(150/30)=5
+        self.assertEqual(entry.hours_decimal, Decimal('2.5'))  # 150min -> 2.5h
     
     @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_deletes_removed_entries(self):
@@ -264,14 +266,14 @@ class TimesheetServiceTestCase(TestCase):
             task=self.task1,
             work_date=work_date,
             duration_minutes_raw=60,
-            billable_half_hours=2
+            hours_decimal=Decimal('1.0')
         )
         TimeEntry.objects.create(
             employee=self.employee,
             task=self.task2,
             work_date=work_date,
             duration_minutes_raw=90,
-            billable_half_hours=3
+            hours_decimal=Decimal('1.5')
         )
         
         # Payload zawiera tylko task1 (task2 powinien być usunięty)
@@ -294,14 +296,14 @@ class TimesheetServiceTestCase(TestCase):
             task=self.task1,
             work_date=work_date,
             duration_minutes_raw=60,
-            billable_half_hours=2
+            hours_decimal=Decimal('1.0')
         )
         TimeEntry.objects.create(
             employee=self.employee,
             task=self.task2,
             work_date=work_date,
             duration_minutes_raw=90,
-            billable_half_hours=3
+            hours_decimal=Decimal('1.5')
         )
         
         # Payload: task1 (update), task3 (create), task2 missing (delete)
@@ -326,26 +328,28 @@ class TimesheetServiceTestCase(TestCase):
         # task2 deleted
         self.assertFalse(entries.filter(task=self.task2).exists())
     
-    # === Tests dla billable rounding ===
+    # === Tests dla hours_decimal calculation ===
     
-    def test_billable_rounding_correct(self):
-        """Test 13: billable_half_hours zaokrąglone poprawnie."""
-        # 1-30 min -> 1 półgodzina
-        self.assertEqual(_calculate_billable_half_hours(1), 1)
-        self.assertEqual(_calculate_billable_half_hours(30), 1)
+    def test_hours_decimal_calculation_correct(self):
+        """Test 13: hours_decimal zaokrąglone poprawnie do 0.5h."""
+        from decimal import Decimal
         
-        # 31-60 min -> 2 półgodziny
-        self.assertEqual(_calculate_billable_half_hours(31), 2)
-        self.assertEqual(_calculate_billable_half_hours(60), 2)
-        
-        # 45 min -> 2 półgodziny
-        self.assertEqual(_calculate_billable_half_hours(45), 2)
-        
-        # 90 min -> 3 półgodziny
-        self.assertEqual(_calculate_billable_half_hours(90), 3)
-        
-        # 91 min -> 4 półgodziny
-        self.assertEqual(_calculate_billable_half_hours(91), 4)
+        # 1 min -> 0.5h
+        self.assertEqual(_calculate_hours_decimal(1), Decimal('0.5'))
+        # 30 min -> 0.5h
+        self.assertEqual(_calculate_hours_decimal(30), Decimal('0.5'))
+        # 31 min -> 1.0h
+        self.assertEqual(_calculate_hours_decimal(31), Decimal('1.0'))
+        # 61 min -> 1.5h
+        self.assertEqual(_calculate_hours_decimal(61), Decimal('1.5'))
+        # 70 min -> 1.5h
+        self.assertEqual(_calculate_hours_decimal(70), Decimal('1.5'))
+        # 90 min -> 1.5h
+        self.assertEqual(_calculate_hours_decimal(90), Decimal('1.5'))
+        # 120 min -> 2.0h
+        self.assertEqual(_calculate_hours_decimal(120), Decimal('2.0'))
+        # 91 min -> 2.0h
+        self.assertEqual(_calculate_hours_decimal(91), Decimal('2.0'))
     
     @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_save_day_enqueues_outbox_job(self):
@@ -396,21 +400,21 @@ class TimesheetServiceTestCase(TestCase):
             task=self.task1,
             work_date=date(2025, 3, 5),
             duration_minutes_raw=200,
-            billable_half_hours=7
+            hours_decimal=Decimal('3.5')
         )
         TimeEntry.objects.create(
             employee=self.employee,
             task=self.task2,
             work_date=date(2025, 3, 5),
             duration_minutes_raw=300,
-            billable_half_hours=10
+            hours_decimal=Decimal('5.0')
         )
         TimeEntry.objects.create(
             employee=self.employee,
             task=self.task1,
             work_date=date(2025, 3, 10),
             duration_minutes_raw=400,
-            billable_half_hours=14
+            hours_decimal=Decimal('7.0')
         )
         
         result = get_month_summary(self.employee, date(2025, 3, 1))
@@ -437,7 +441,7 @@ class TimesheetServiceTestCase(TestCase):
             task=self.task1,
             work_date=date(2025, 3, 5),  # Czwartek
             duration_minutes_raw=500,
-            billable_half_hours=17
+            hours_decimal=Decimal('8.5')
         )
         
         result = get_month_summary(self.employee, date(2025, 3, 1))
@@ -455,7 +459,7 @@ class TimesheetServiceTestCase(TestCase):
             task=self.task1,
             work_date=date(2025, 3, 1),  # Sobota
             duration_minutes_raw=300,
-            billable_half_hours=10
+            hours_decimal=Decimal('5.0')
         )
         
         result = get_month_summary(self.employee, date(2025, 3, 1))
@@ -521,14 +525,14 @@ class TimesheetServiceTestCase(TestCase):
             task=self.task1,
             work_date=work_date,
             duration_minutes_raw=200,
-            billable_half_hours=7
+            hours_decimal=Decimal('3.5')
         )
         TimeEntry.objects.create(
             employee=self.employee,
             task=self.task2,
             work_date=work_date,
             duration_minutes_raw=300,
-            billable_half_hours=10
+            hours_decimal=Decimal('5.0')
         )
         
         result = get_day(self.employee, work_date)
@@ -541,7 +545,7 @@ class TimesheetServiceTestCase(TestCase):
         entry1 = next(e for e in result.entries if e['task_id'] == self.task1.id)
         self.assertEqual(entry1['task_display_name'], "Task 1")
         self.assertEqual(entry1['duration_minutes_raw'], 200)
-        self.assertEqual(entry1['billable_half_hours'], 7)
+        self.assertEqual(entry1['hours_decimal'], '3.50')
     
     @freeze_time("2025-03-15 12:00:00", tz_offset=1)
     def test_get_day_future_not_editable(self):
