@@ -72,7 +72,7 @@ Primary Django app: `timetracker_app/`
 - `task` FK (to TaskCache)
 - `work_date` date
 - `duration_minutes_raw` int > 0
-- `billable_half_hours` int >= 1
+- `hours_decimal` Decimal >= 0.5
 
 ### CalendarOverride
 - `day` (date PK/unique)
@@ -100,7 +100,7 @@ Primary Django app: `timetracker_app/`
 
 ### Checks
 - `duration_minutes_raw > 0`
-- `billable_half_hours >= 1`
+- `hours_decimal >= 0.5`
 
 ### Indexes
 - TimeEntry: `(employee_id, work_date)` for day/month queries
@@ -116,7 +116,7 @@ These are enforced in **service layer** and also supported by DB constraints:
 - No future dates
 - Editable window: current month and previous month only
 - Day raw sum <= 1440 minutes
-- Billable rounding: `billable_half_hours = ceil(raw_minutes / 30)`
+- Billable rounding: `hours_decimal` rounds to nearest 0.5h (e.g., `ceil((raw_minutes / 60) * 2) / 2`)
 - Overtime based on day type and employee norm
 - Day type default: weekend=Free; overrides from CalendarOverride
 
@@ -138,10 +138,11 @@ These are enforced in **service layer** and also supported by DB constraints:
       - delete entries for tasks removed from payload
     - returns recomputed day totals and month affected summary hints
 
-### TaskService
-- `list_active_tasks() -> TaskListDTO`
-  - returns tasks with filter fields + display_name/search_text
-  - optionally returns distinct filter values (for client-side filters)
+### Tasks API
+- No separate TaskService class in MVP
+- `views_tasks.py` queries `TaskCache` directly for active tasks
+- Returns tasks with filter fields + display_name/search_text
+- Frontend performs client-side filtering
 
 ### CalendarService
 - `get_day_type(date) -> Working|Free`
@@ -261,7 +262,7 @@ Minimum test coverage:
   - rejects day sum > 1440
   - prevents duplicates (payload + DB)
   - upsert + delete behavior is correct
-  - billable_half_hours calculation correct
+  - hours_decimal calculation correct (rounds to 0.5h)
 - Auth:
   - invite token valid/expired/used
   - reset flow valid/expired/used

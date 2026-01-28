@@ -133,7 +133,7 @@ erDiagram
     int task_id FK
     date work_date
     int duration_minutes_raw
-    int billable_half_hours
+    decimal hours_decimal
   }
 
   CALENDAR_OVERRIDE {
@@ -154,7 +154,8 @@ erDiagram
 * Duration must be `> 0`
 * Billable rounding:
 
-  * `billable_half_hours = ceil(duration_minutes_raw / 30)`
+  * `hours_decimal = ceil((duration_minutes_raw / 60) * 2) / 2`
+  * rounds to nearest 0.5h (e.g., 1 min → 0.5h, 31 min → 1.0h)
 
 ---
 
@@ -206,30 +207,30 @@ sequenceDiagram
 
 ## Option A: Docker (recommended)
 
-**Szczegółowe instrukcje Docker:** Zobacz [`DOCKER.md`](DOCKER.md) dla pełnej dokumentacji środowisk dev i prod.
+**Detailed Docker instructions:** See [`DOCKER.md`](DOCKER.md) for full documentation on dev and prod environments.
 
-**Szybki start:**
+**Quick start:**
 
-1. Skopiuj `.env.example` do `.env`:
+1. Copy `.env.example` to `.env`:
 
 ```bash
 cp .env.example .env
 ```
 
-2. Uruchom dev stack:
+2. Start dev stack:
 
 ```bash
 docker compose -f docker-compose.dev.yml up --build
 ```
 
-3. Wykonaj migracje i utwórz superusera (w osobnym terminalu):
+3. Run migrations and create superuser (in separate terminal):
 
 ```bash
 docker exec -it timetracker_backend_dev python manage.py migrate
 docker exec -it timetracker_backend_dev python manage.py createsuperuser
 ```
 
-4. Dostęp:
+4. Access:
 
 * **Frontend:** http://localhost:5173
 * **Backend API:** http://localhost:8000/api
@@ -339,6 +340,7 @@ For detailed security implementation, see [`backend/AGENTS.md`](backend/AGENTS.m
 * Backend rules live in `services/`
 * Keep controllers thin
 * Add constraints + indexes in DB, not only in code
+* Comments & docstrings in **Polish** (explain *what* and *why*, not restating the code)
 * Write tests for:
 
   * `save_day()` validation and upsert/delete behavior

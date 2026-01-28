@@ -56,8 +56,8 @@ Frontend stack:
 - Day total raw duration must be **<= 1440 minutes**
 - Billing:
   - store raw minutes: `duration_minutes_raw`
-  - store billable half-hours: `billable_half_hours = ceil(raw_minutes / 30)`
-  - derived billable hours: `hours_billable = billable_half_hours / 2`
+  - store billable hours: `hours_decimal` (Decimal, >= 0.5)
+  - calculation: rounds to nearest 0.5h, e.g., `ceil((raw_minutes / 60) * 2) / 2`
 - Overtime:
   - Working day: `max(0, day_raw_sum - employee.daily_norm_minutes)`
   - Free day: `overtime = day_raw_sum`

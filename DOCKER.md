@@ -121,7 +121,7 @@ CSRF_TRUSTED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
 CORS_ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
 
 # Frontend: użyj względnego URL (nginx proxy)
-VITE_API_URL=/api
+VITE_API_BASE_URL=/api
 ```
 
 **WAŻNE:** Nigdy nie commituj pliku `.env` z produkcyjnymi sekretami do git!
@@ -287,11 +287,11 @@ cat backup.sql | docker exec -i timetracker_db_prod psql -U timetracker timetrac
 ### Problem: Frontend nie może połączyć się z backend
 
 **Dev:**
-- Sprawdź `VITE_API_URL` w `.env` (powinno być `http://localhost:8000`)
+- Sprawdź `VITE_API_BASE_URL` w `.env` (powinno być `http://localhost:8000`)
 - Sprawdź proxy w `vite.config.ts`
 
 **Prod:**
-- Sprawdź `VITE_API_URL` w `.env` (powinno być `/api`)
+- Sprawdź `VITE_API_BASE_URL` w `.env` (powinno być `/api`)
 - Sprawdź logi nginx: `docker compose logs nginx`
 
 ### Problem: Błędy TypeScript podczas build frontend

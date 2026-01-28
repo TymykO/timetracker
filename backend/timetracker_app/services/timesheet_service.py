@@ -157,7 +157,7 @@ def get_day(employee: Employee, work_date: date) -> DayDTO:
     4. Query TimeEntry dla (employee, work_date) z select_related(task)
     5. Oblicz total_raw = sum(duration_minutes_raw)
     6. Oblicz overtime = _calculate_overtime(total_raw, day_type, employee.daily_norm_minutes)
-    7. Zbuduj listę entries: [{task_id, duration_minutes_raw, billable_half_hours, task_display_name}]
+    7. Zbuduj listę entries: [{task_id, duration_minutes_raw, hours_decimal, task_display_name}]
     8. Zwróć DayDTO
     
     Args:
@@ -340,11 +340,11 @@ def save_day(employee: Employee, work_date: date, items: List[SaveDayItemRequest
         8. Zbuduj mapę payload_task_ids = set(item.task_id for item in items)
         
         9. Dla każdego item w items:
-           a. billable = _calculate_billable_half_hours(item.duration_minutes_raw)
+           a. hours_decimal = _calculate_hours_decimal(item.duration_minutes_raw)
            b. Jeśli task_id w existing_by_task:
-              - UPDATE: entry.duration_minutes_raw = raw, entry.billable_half_hours = billable
+              - UPDATE: entry.duration_minutes_raw = raw, entry.hours_decimal = hours_decimal
            c. Jeśli task_id NIE w existing_by_task:
-              - CREATE: TimeEntry(employee, task_id, work_date, raw, billable)
+              - CREATE: TimeEntry(employee, task_id, work_date, raw, hours_decimal)
         
         10. Dla każdego existing_entry gdzie task_id NOT IN payload_task_ids:
             - DELETE: existing_entry.delete()

@@ -65,13 +65,19 @@ class Command(BaseCommand):
             
             # 2 wpisy dla każdego dnia
             for task_idx in range(2):
+                from decimal import Decimal
+                from math import ceil
+                
+                raw_minutes = 200 + (task_idx * 60)
+                hours_decimal = Decimal(ceil((raw_minutes / 60) * 2)) / Decimal('2')
+                
                 TimeEntry.objects.get_or_create(
                     employee=employee,
                     work_date=work_date,
                     task=tasks[task_idx],
                     defaults={
-                        'duration_minutes_raw': 200 + (task_idx * 60),
-                        'billable_half_hours': (200 + (task_idx * 60)) // 30 + 1
+                        'duration_minutes_raw': raw_minutes,
+                        'hours_decimal': hours_decimal
                     }
                 )
 

@@ -29,10 +29,10 @@ This layer must NOT:
 
 ### Time rounding (billing)
 - raw minutes stored: `duration_minutes_raw` (int, >0)
-- billable half-hours stored: `billable_half_hours` (int >= 1)
+- billable hours stored: `hours_decimal` (Decimal >= 0.5)
 - compute:
-  - `billable_half_hours = ceil(duration_minutes_raw / 30)`
-  - `hours_billable = billable_half_hours / 2`
+  - `hours_decimal = ceil((duration_minutes_raw / 60) * 2) / 2`
+  - rounds to nearest 0.5h (e.g., 1 min → 0.5h, 31 min → 1.0h, 61 min → 1.5h)
 
 ### Day totals
 - `day_raw_sum_minutes = sum(duration_minutes_raw for that employee + date)`
@@ -103,7 +103,7 @@ Returns the Day view state:
 - `entries[]`:
   - `task_id`
   - `duration_minutes_raw`
-  - `billable_half_hours`
+  - `hours_decimal`
   - `task_display_name` (optional convenience, may come from TaskCache)
 
 ---
@@ -125,7 +125,7 @@ Returns the Day view state:
 - Apply changes in a single DB transaction:
   1) Load existing entries for (employee, date) → map by task_id
   2) For each payload item:
-     - if entry exists → update duration + billable
+     - if entry exists → update duration_minutes_raw + hours_decimal
      - else → create new entry
   3) Delete entries that exist in DB but are missing from payload (user removed them)
 - Recompute totals and return:
@@ -139,18 +139,6 @@ Returns the Day view state:
 **Concurrency**
 - Use transaction + unique constraint to protect against race duplicates.
 - Prefer select-for-update on the existing day entries rowset if needed.
-
----
-
-### TaskService
-
-#### `list_active_tasks() -> TaskListDTO`
-- returns all `TaskCache` where `is_active=True`
-- must include fields required by UI:
-  - filter fields: `project_phase`, `department`, `discipline` (strings)
-  - `display_name`
-  - `search_text`
-- optionally include distinct filter values, but UI can derive them too
 
 ---
 
@@ -215,7 +203,7 @@ Outbox handler is responsible later.
 - save_day rejects sum > 1440
 - save_day upsert behavior (create/update)
 - save_day delete behavior (remove missing)
-- billable rounding to half-hours is correct
+- hours_decimal rounding to 0.5h increments is correct
 - overtime calculation for Working/Free is correct (with override and without)
 
 Keep tests deterministic (freeze “today” using a helper or dependency injection).
