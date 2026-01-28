@@ -105,14 +105,14 @@ erDiagram
   TASK_CACHE ||--o{ TIME_ENTRY : receives
 
   EMPLOYEE {
-    int id PK
-    string email UNIQUE
+    int id "PK"
+    string email "UNIQUE"
     bool is_active
     int daily_norm_minutes
   }
 
   TASK_CACHE {
-    int id PK
+    int id "PK"
     bool is_active
     string display_name
     string search_text
@@ -127,18 +127,18 @@ erDiagram
   }
 
   TIME_ENTRY {
-    int id PK
-    int employee_id FK
-    int task_id FK
+    int id "PK"
+    int employee_id "FK"
+    int task_id "FK"
     date work_date
     int duration_minutes_raw
     decimal hours_decimal
   }
 
   CALENDAR_OVERRIDE {
-    int id PK
-    date day UNIQUE
-    string day_type "Working|Free"
+    int id "PK"
+    date day "UNIQUE"
+    string day_type "Working or Free"
   }
 ```
 
