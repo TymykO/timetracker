@@ -103,7 +103,6 @@ graph TD
 erDiagram
   EMPLOYEE ||--o{ TIME_ENTRY : logs
   TASK_CACHE ||--o{ TIME_ENTRY : receives
-  CALENDAR_OVERRIDE ||--o{ DAY : defines
 
   EMPLOYEE {
     int id PK
@@ -139,7 +138,7 @@ erDiagram
   CALENDAR_OVERRIDE {
     int id PK
     date day UNIQUE
-    string day_type  "Working|Free"
+    string day_type "Working|Free"
   }
 ```
 
