@@ -10,11 +10,13 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ButtonGroup, Button } from "@mui/material";
+import { useQuery } from "@tanstack/react-query";
+import { ButtonGroup, Button, Grid, Box } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { api } from "../../app/api_client";
 import { MonthTable } from "../../components/MonthTable";
+import { MonthSummaryPanel } from "../../components/MonthSummaryPanel";
 import { Page } from "../../components/Page";
 import { LoadingState } from "../../components/LoadingState";
 import { ErrorState } from "../../components/ErrorState";
@@ -55,6 +57,13 @@ export default function MonthPage() {
   const [data, setData] = useState<MonthSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Pobierz profil użytkownika z cache (AuthGuard już go załadował)
+  const { data: user } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => api.me(),
+  });
+  const dailyNormMinutes = user?.daily_norm_minutes ?? 480;
 
   // Fetch danych miesiąca
   useEffect(() => {
@@ -133,7 +142,17 @@ export default function MonthPage() {
       {error && <ErrorState message={error} />}
 
       {!loading && !error && data && (
-        <MonthTable days={data.days} onDayClick={handleDayClick} />
+        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, flexWrap: 'wrap' }}>
+          <Box sx={{ flex: '1 1 auto', minWidth: 0, maxWidth: 800 }}>
+            <MonthTable days={data.days} onDayClick={handleDayClick} />
+          </Box>
+          <Box sx={{ flex: '0 0 auto', width: { xs: '100%', md: 400 } }}>
+            <MonthSummaryPanel 
+              days={data.days} 
+              dailyNormMinutes={dailyNormMinutes}
+            />
+          </Box>
+        </Box>
       )}
     </Page>
   );

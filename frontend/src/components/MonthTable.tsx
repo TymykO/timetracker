@@ -20,17 +20,11 @@ import {
 import CheckIcon from "@mui/icons-material/Check";
 import RemoveIcon from "@mui/icons-material/Remove";
 import type { MonthDay } from "../types/dto";
+import { minutesToHHMM } from "../utils/timeUtils";
 
 interface Props {
   days: MonthDay[];
   onDayClick: (date: string) => void;
-}
-
-// Helper: konwersja minut na format hh:mm
-function minutesToHHMM(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 }
 
 // Helper: formatowanie daty na czytelny format (np. "2025-01-15" -> "15 Sty")
