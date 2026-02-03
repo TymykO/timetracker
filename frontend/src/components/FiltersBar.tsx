@@ -10,14 +10,10 @@
 import { useState, useEffect } from "react";
 import {
   Box,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
+  Autocomplete,
   TextField,
   Stack,
 } from "@mui/material";
-import type { SelectChangeEvent } from "@mui/material";
 
 export interface Filters {
   projectPhase: string | null;
@@ -60,27 +56,24 @@ export function FiltersBar({
     setSearchValue(filters.search);
   }, [filters.search]);
 
-  const handleProjectPhaseChange = (event: SelectChangeEvent) => {
-    const value = event.target.value;
+  const handleProjectPhaseChange = (_: any, newValue: string | null) => {
     onFiltersChange({
       ...filters,
-      projectPhase: value === "" ? null : value,
+      projectPhase: newValue,
     });
   };
 
-  const handleDepartmentChange = (event: SelectChangeEvent) => {
-    const value = event.target.value;
+  const handleDepartmentChange = (_: any, newValue: string | null) => {
     onFiltersChange({
       ...filters,
-      department: value === "" ? null : value,
+      department: newValue,
     });
   };
 
-  const handleDisciplineChange = (event: SelectChangeEvent) => {
-    const value = event.target.value;
+  const handleDisciplineChange = (_: any, newValue: string | null) => {
     onFiltersChange({
       ...filters,
-      discipline: value === "" ? null : value,
+      discipline: newValue,
     });
   };
 
@@ -88,66 +81,48 @@ export function FiltersBar({
     <Box sx={{ p: 2 }}>
       <Stack direction="row" spacing={2} flexWrap="wrap">
         <Box sx={{ minWidth: 200, flex: 1 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel id="project-phase-label">Faza projektu</InputLabel>
-            <Select
-              labelId="project-phase-label"
-              value={filters.projectPhase || ""}
-              label="Faza projektu"
-              onChange={handleProjectPhaseChange}
-            >
-              <MenuItem value="">
-                <em>Wszystkie</em>
-              </MenuItem>
-              {projectPhases.map((phase) => (
-                <MenuItem key={phase} value={phase}>
-                  {phase}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Autocomplete
+            options={[null, ...projectPhases]}
+            value={filters.projectPhase}
+            onChange={handleProjectPhaseChange}
+            getOptionLabel={(option) => option || "Wszystkie"}
+            isOptionEqualToValue={(option, value) => option === value}
+            renderInput={(params) => (
+              <TextField {...params} label="Faza projektu" />
+            )}
+            size="small"
+            fullWidth
+          />
         </Box>
 
         <Box sx={{ minWidth: 200, flex: 1 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel id="department-label">Dział</InputLabel>
-            <Select
-              labelId="department-label"
-              value={filters.department || ""}
-              label="Dział"
-              onChange={handleDepartmentChange}
-            >
-              <MenuItem value="">
-                <em>Wszystkie</em>
-              </MenuItem>
-              {departments.map((dept) => (
-                <MenuItem key={dept} value={dept}>
-                  {dept}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Autocomplete
+            options={[null, ...departments]}
+            value={filters.department}
+            onChange={handleDepartmentChange}
+            getOptionLabel={(option) => option || "Wszystkie"}
+            isOptionEqualToValue={(option, value) => option === value}
+            renderInput={(params) => (
+              <TextField {...params} label="Dział" />
+            )}
+            size="small"
+            fullWidth
+          />
         </Box>
 
         <Box sx={{ minWidth: 200, flex: 1 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel id="discipline-label">Branża</InputLabel>
-            <Select
-              labelId="discipline-label"
-              value={filters.discipline || ""}
-              label="Branża"
-              onChange={handleDisciplineChange}
-            >
-              <MenuItem value="">
-                <em>Wszystkie</em>
-              </MenuItem>
-              {disciplines.map((disc) => (
-                <MenuItem key={disc} value={disc}>
-                  {disc}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Autocomplete
+            options={[null, ...disciplines]}
+            value={filters.discipline}
+            onChange={handleDisciplineChange}
+            getOptionLabel={(option) => option || "Wszystkie"}
+            isOptionEqualToValue={(option, value) => option === value}
+            renderInput={(params) => (
+              <TextField {...params} label="Branża" />
+            )}
+            size="small"
+            fullWidth
+          />
         </Box>
 
         <Box sx={{ minWidth: 200, flex: 1 }}>
