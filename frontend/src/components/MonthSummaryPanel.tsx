@@ -86,17 +86,14 @@ export function MonthSummaryPanel({ days, dailyNormMinutes }: Props) {
       {/* Sekcja: Postęp wykonania normy */}
       <Box sx={{ my: 3 }}>
         <Typography variant="body2" color="text.secondary" gutterBottom align="center">
-          Wykonanie normy
+          Wykonanie normy: {progressPercent}%
+          {progressPercent > 100 && ` (nadwyżka: ${minutesToHHMM(totalWorkMinutes - monthlyNormMinutes)})`}
         </Typography>
         <LinearProgress 
           variant="determinate" 
           value={progressForBar}
-          sx={{ height: 8, borderRadius: 1, mb: 1 }}
+          sx={{ height: 8, borderRadius: 1 }}
         />
-        <Typography variant="body2" color="text.secondary" align="center">
-          Wykonanie normy: {progressPercent}%
-          {progressPercent > 100 && ` (nadwyżka: ${minutesToHHMM(totalWorkMinutes - monthlyNormMinutes)})`}
-        </Typography>
       </Box>
 
       {/* Sekcja: Higiena wpisów */}
