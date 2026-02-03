@@ -232,10 +232,9 @@ export default function DayPage() {
     return (
       dayData?.is_editable &&
       !hasValidationErrors &&
-      !isSaving &&
-      selectedTasks.size > 0
+      !isSaving
     );
-  }, [dayData, hasValidationErrors, isSaving, selectedTasks]);
+  }, [dayData, hasValidationErrors, isSaving]);
 
   // ===== Handlers =====
 
@@ -428,7 +427,12 @@ export default function DayPage() {
                 onClick={handleSave}
                 size="large"
               >
-                {isSaving ? "Zapisywanie..." : "Zapisz wpisy"}
+                {isSaving 
+                  ? "Zapisywanie..." 
+                  : selectedTasks.size === 0
+                    ? "Zapisz pusty dzień (usuń wpisy)"
+                    : "Zapisz wpisy"
+                }
               </Button>
               <Button variant="outlined" onClick={handleBackToMonth} size="large">
                 Anuluj

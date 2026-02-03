@@ -281,3 +281,114 @@ test.describe('Day View - Edge Cases', () => {
     await expect(saveButton).toBeDisabled();
   });
 });
+
+test.describe('Day View - Pusty dzień', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('input[name="email"]', TEST_USER.email);
+    await page.fill('input[name="password"]', TEST_USER.password);
+    await page.click('button[type="submit"]');
+    await page.waitForURL(/\/month\/\d{4}-\d{2}/);
+    
+    // Przejdź do edytowalnego dnia (poprzedni miesiąc)
+    await page.goto('/month/2025-01');
+    await page.click('tbody tr:first-child a');
+    await page.waitForURL(/\/day\/\d{4}-\d{2}-\d{2}/);
+  });
+  
+  test('użytkownik może zapisać pusty dzień (bez tasków)', async ({ page }) => {
+    await page.waitForTimeout(1000);
+    
+    // Sprawdź że brak tasków w selected
+    await expect(page.locator('text=/Nie wybrano żadnych tasków/i')).toBeVisible();
+    
+    // Przycisk Save powinien być aktywny i mieć odpowiedni tekst
+    const saveButton = page.locator('button:has-text("Zapisz pusty dzień"), button:has-text("Zapisz")');
+    await expect(saveButton).toBeEnabled();
+    
+    // Kliknij "Zapisz"
+    await saveButton.click();
+    
+    // Oczekuj success message
+    await expect(page.locator('text=/Zapisano|Saved|Success/i')).toBeVisible({ timeout: 10000 });
+    
+    // Wróć do month view
+    await page.click('a:has-text("Powrót"), a:has-text("Back"), button:has-text("Powrót")');
+    await page.waitForURL(/\/month\/\d{4}-\d{2}/);
+    
+    // Sprawdź że dzień ma has_entries = false i czas = 0:00
+    const firstDayRow = page.locator('tbody tr').first();
+    await expect(firstDayRow.locator('text=/0:00|00:00/i')).toBeVisible();
+  });
+  
+  test('użytkownik może usunąć wszystkie taski i zapisać', async ({ page }) => {
+    await page.waitForTimeout(1000);
+    
+    // Dodaj 2 taski z czasem
+    const tasks = page.locator('[data-testid="task-item"] button, button:has-text("Wybierz")');
+    await tasks.nth(0).click();
+    await page.waitForTimeout(300);
+    await tasks.nth(1).click();
+    
+    // Wprowadź czasy
+    const inputs = page.locator('input[type="number"][name="duration"], input[type="text"][placeholder*="0:00"]');
+    await inputs.nth(0).fill('120');
+    await inputs.nth(1).fill('180');
+    
+    // Usuń wszystkie taski (delete buttons)
+    const deleteButtons = page.locator('button[aria-label*="usuń"], button:has(svg[data-testid="DeleteIcon"])');
+    const count = await deleteButtons.count();
+    for (let i = count - 1; i >= 0; i--) {
+      await deleteButtons.nth(i).click();
+      await page.waitForTimeout(200);
+    }
+    
+    // Sprawdź że komunikat "Nie wybrano żadnych tasków" jest widoczny
+    await expect(page.locator('text=/Nie wybrano żadnych tasków/i')).toBeVisible();
+    
+    // Kliknij "Zapisz pusty dzień"
+    const saveButton = page.locator('button:has-text("Zapisz")');
+    await saveButton.click();
+    
+    // Oczekuj success
+    await expect(page.locator('text=/Zapisano|Saved|Success/i')).toBeVisible({ timeout: 10000 });
+    
+    // Reload strony - sprawdź że brak wpisów
+    await page.reload();
+    await page.waitForTimeout(1000);
+    await expect(page.locator('text=/Nie wybrano żadnych tasków/i')).toBeVisible();
+  });
+  
+  test('zapisanie pustego dnia usuwa istniejące wpisy', async ({ page }) => {
+    await page.waitForTimeout(1000);
+    
+    // Dodaj task i zapisz
+    const firstTask = page.locator('[data-testid="task-item"] button, button:has-text("Wybierz")').first();
+    await firstTask.click();
+    
+    const durationInput = page.locator('input[type="number"][name="duration"], input[type="text"][placeholder*="0:00"]').first();
+    await durationInput.fill('240');
+    
+    await page.click('button:has-text("Zapisz")');
+    await expect(page.locator('text=/Zapisano|Saved|Success/i')).toBeVisible({ timeout: 10000 });
+    
+    // Poczekaj na zapisanie
+    await page.waitForTimeout(1000);
+    
+    // Usuń task
+    const deleteButton = page.locator('button[aria-label*="usuń"], button:has(svg[data-testid="DeleteIcon"])').first();
+    await deleteButton.click();
+    
+    // Zapisz pusty dzień
+    await page.click('button:has-text("Zapisz")');
+    await expect(page.locator('text=/Zapisano|Saved|Success/i')).toBeVisible({ timeout: 10000 });
+    
+    // Reload strony - sprawdź że brak wpisów
+    await page.reload();
+    await page.waitForTimeout(1000);
+    await expect(page.locator('text=/Nie wybrano żadnych tasków/i')).toBeVisible();
+    
+    // Sprawdź że czas = 0:00 w headerze
+    await expect(page.locator('text=/Czas pracy.*0:00|00:00/i')).toBeVisible();
+  });
+});
