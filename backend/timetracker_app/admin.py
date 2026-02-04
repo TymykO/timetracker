@@ -195,6 +195,76 @@ class CalendarOverrideAdmin(admin.ModelAdmin):
     search_fields = ["note"]
     date_hierarchy = "day"
     
+    def response_action(self, request, queryset):
+        """
+        Nadpisz response_action aby obsłużyć zlokalizowane wartości PK.
+        
+        Problem: pole day jest primary_key (DateField) z włączoną lokalizacją (pl-pl).
+        Django renderuje checkboxy w changelist z formatem "Sty. 30, 2026".
+        request.POST zawiera te zlokalizowane wartości, które powodują ValidationError
+        przy próbie użycia ich w queryset.filter(pk__in=selected).
+        
+        Rozwiązanie: przechwytujemy wartości, parsujemy polski format daty i konwertujemy
+        na YYYY-MM-DD przed wywołaniem oryginalnej response_action.
+        """
+        from datetime import datetime
+        import re
+        
+        # Konwertuj zlokalizowane daty z checkboxów na format YYYY-MM-DD
+        if '_selected_action' in request.POST:
+            selected = request.POST.getlist('_selected_action')
+            
+            # Mapowanie polskich skrótów miesięcy
+            polish_months = {
+                'Sty': '01', 'Lut': '02', 'Mar': '03', 'Kwi': '04',
+                'Maj': '05', 'Cze': '06', 'Lip': '07', 'Sie': '08',
+                'Wrz': '09', 'Paź': '10', 'Lis': '11', 'Gru': '12',
+            }
+            
+            converted = []
+            for value in selected:
+                # Jeśli już jest w formacie YYYY-MM-DD, zostaw bez zmian
+                if value and len(value) == 10 and value[4] == '-' and value[7] == '-':
+                    converted.append(value)
+                    continue
+                
+                # Spróbuj sparsować zlokalizowany polski format "Sty. 30, 2026"
+                parsed_date = None
+                match = re.match(r'(\w+)\.\s+(\d{1,2}),\s+(\d{4})', value)
+                if match:
+                    month_abbr, day, year = match.groups()
+                    if month_abbr in polish_months:
+                        month = polish_months[month_abbr]
+                        parsed_date = f"{year}-{month}-{day.zfill(2)}"
+                
+                # Spróbuj inne formaty numeryczne
+                if not parsed_date:
+                    numeric_formats = [
+                        '%d.%m.%Y',      # "30.01.2026"
+                        '%d/%m/%Y',      # "30/01/2026"
+                        '%d-%m-%Y',      # "30-01-2026"
+                    ]
+                    
+                    for fmt in numeric_formats:
+                        try:
+                            date_obj = datetime.strptime(value, fmt).date()
+                            parsed_date = date_obj.strftime('%Y-%m-%d')
+                            break
+                        except ValueError:
+                            continue
+                
+                if parsed_date:
+                    converted.append(parsed_date)
+                else:
+                    # Jeśli nie udało się sparsować, użyj oryginalnej wartości
+                    converted.append(value)
+            
+            # Zamień request.POST na mutable copy i zaktualizuj wartości
+            request.POST = request.POST.copy()
+            request.POST.setlist('_selected_action', converted)
+        
+        return super().response_action(request, queryset)
+    
     fieldsets = (
         ("Data i typ", {
             "fields": ("day", "day_type")
