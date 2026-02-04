@@ -223,9 +223,16 @@ export function SelectedTasksTable({
                   return (
                     <TableRow key={taskId}>
                       <TableCell>
-                        <Typography variant="body2">
-                          {entry.task.display_name}
-                        </Typography>
+                        <Box>
+                          <Typography variant="body2">
+                            {entry.task.display_name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {[entry.task.project_phase, entry.task.department, entry.task.discipline]
+                              .filter(Boolean)
+                              .join(" • ") || "Brak kategorii"}
+                          </Typography>
+                        </Box>
                       </TableCell>
                       <TableCell>
                         <TimeInput
