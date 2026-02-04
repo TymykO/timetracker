@@ -181,3 +181,158 @@ class EmployeeAdminTestCase(TestCase):
         self.assertTrue(employee.user.is_active)
         self.assertTrue(employee.user.has_usable_password())
         self.assertTrue(employee.user.check_password("SecurePassword123!"))
+
+
+class CalendarOverrideAdminTestCase(TestCase):
+    """
+    Testy integracyjne dla CalendarOverrideAdmin.response_action.
+    
+    Sprawdza czy konwersja zlokalizowanych dat działa poprawnie w kontekście
+    Django admin bulk actions.
+    """
+    
+    def setUp(self):
+        """Setup: tworzy AdminSite, CalendarOverrideAdmin i test data."""
+        from timetracker_app.admin import CalendarOverrideAdmin
+        from timetracker_app.models import CalendarOverride
+        from datetime import date
+        from django.test import RequestFactory
+        
+        self.site = AdminSite()
+        self.admin = CalendarOverrideAdmin(CalendarOverride, self.site)
+        self.factory = RequestFactory()
+        
+        # Utwórz testowe override'y
+        CalendarOverride.objects.create(
+            day=date(2026, 1, 30),
+            day_type="Free",
+            note="Święto"
+        )
+        CalendarOverride.objects.create(
+            day=date(2026, 2, 15),
+            day_type="Working",
+            note="Dodatkowy dzień roboczy"
+        )
+    
+    def test_response_action_converts_polish_localized_dates(self):
+        """Test: response_action konwertuje polskie zlokalizowane daty."""
+        # Użyj RequestFactory aby utworzyć prawidłowy request
+        request = self.factory.post('/admin/timetracker_app/calendaroverride/', {
+            '_selected_action': ['Sty. 30, 2026'],  # Polski format
+            'action': 'delete_selected',
+        })
+        
+        # Dodaj user do request (wymagane przez Django admin)
+        from django.contrib.auth.models import User
+        request.user = User.objects.create_superuser('admin', 'admin@test.com', 'pass')
+        
+        queryset = self.admin.get_queryset(request)
+        
+        # Wywołaj response_action - powinno przekonwertować datę
+        result = self.admin.response_action(request, queryset)
+        
+        # Sprawdź że request.POST zawiera teraz datę w formacie ISO
+        converted_dates = request.POST.getlist('_selected_action')
+        self.assertEqual(converted_dates, ['2026-01-30'])
+    
+    def test_response_action_converts_iso_dates_unchanged(self):
+        """Test: response_action pozostawia daty ISO bez zmian."""
+        from django.contrib.auth.models import User
+        
+        request = self.factory.post('/admin/timetracker_app/calendaroverride/', {
+            '_selected_action': ['2026-01-30'],  # ISO format
+            'action': 'delete_selected',
+        })
+        request.user = User.objects.create_superuser('admin2', 'admin2@test.com', 'pass')
+        
+        queryset = self.admin.get_queryset(request)
+        
+        # Wywołaj response_action
+        result = self.admin.response_action(request, queryset)
+        
+        # Daty ISO powinny pozostać bez zmian
+        converted_dates = request.POST.getlist('_selected_action')
+        self.assertEqual(converted_dates, ['2026-01-30'])
+    
+    def test_response_action_converts_numeric_dates(self):
+        """Test: response_action konwertuje daty numeryczne."""
+        from django.contrib.auth.models import User
+        
+        request = self.factory.post('/admin/timetracker_app/calendaroverride/', {
+            '_selected_action': ['30.01.2026'],  # Numeric format
+            'action': 'delete_selected',
+        })
+        request.user = User.objects.create_superuser('admin3', 'admin3@test.com', 'pass')
+        
+        queryset = self.admin.get_queryset(request)
+        
+        # Wywołaj response_action
+        result = self.admin.response_action(request, queryset)
+        
+        # Sprawdź konwersję
+        converted_dates = request.POST.getlist('_selected_action')
+        self.assertEqual(converted_dates, ['2026-01-30'])
+    
+    def test_response_action_converts_mixed_formats(self):
+        """Test: response_action obsługuje mieszane formaty."""
+        from django.contrib.auth.models import User
+        
+        request = self.factory.post('/admin/timetracker_app/calendaroverride/', {
+            '_selected_action': ['2026-01-30', 'Lut. 15, 2026'],
+            'action': 'delete_selected',
+        })
+        request.user = User.objects.create_superuser('admin4', 'admin4@test.com', 'pass')
+        
+        queryset = self.admin.get_queryset(request)
+        
+        # Wywołaj response_action
+        result = self.admin.response_action(request, queryset)
+        
+        # Sprawdź konwersję
+        converted_dates = request.POST.getlist('_selected_action')
+        self.assertEqual(converted_dates, ['2026-01-30', '2026-02-15'])
+    
+    def test_response_action_skips_invalid_dates(self):
+        """Test: response_action pomija nieprawidłowe daty (fail-fast)."""
+        from django.contrib.auth.models import User
+        
+        request = self.factory.post('/admin/timetracker_app/calendaroverride/', {
+            '_selected_action': ['2026-01-30', 'invalid date', 'Lut. 15, 2026'],
+            'action': 'delete_selected',
+        })
+        request.user = User.objects.create_superuser('admin5', 'admin5@test.com', 'pass')
+        
+        queryset = self.admin.get_queryset(request)
+        
+        # Wywołaj response_action
+        result = self.admin.response_action(request, queryset)
+        
+        # Tylko prawidłowe daty powinny być w wyniku (fail-fast approach)
+        converted_dates = request.POST.getlist('_selected_action')
+        self.assertEqual(len(converted_dates), 2)
+        self.assertEqual(converted_dates, ['2026-01-30', '2026-02-15'])
+    
+    def test_response_action_without_selected_action(self):
+        """Test: response_action działa gdy brak _selected_action."""
+        from django.contrib.auth.models import User
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        
+        request = self.factory.post('/admin/timetracker_app/calendaroverride/', {
+            'action': 'some_action',
+            # Brak '_selected_action'
+        })
+        request.user = User.objects.create_superuser('admin6', 'admin6@test.com', 'pass')
+        
+        # Dodaj messages storage (wymagane przez Django admin)
+        setattr(request, 'session', {})
+        setattr(request, '_messages', FallbackStorage(request))
+        
+        queryset = self.admin.get_queryset(request)
+        
+        # Wywołaj response_action - nie powinno rzucić wyjątku
+        # Result może być None jeśli akcja nie została znaleziona (to jest OK)
+        try:
+            result = self.admin.response_action(request, queryset)
+            # Jeśli nie rzuciło wyjątku, test przeszedł
+        except Exception as e:
+            self.fail(f"response_action rzuciło nieoczekiwany wyjątek: {e}")
