@@ -188,12 +188,55 @@ class TimeEntryAdmin(admin.ModelAdmin):
 
 @admin.register(CalendarOverride)
 class CalendarOverrideAdmin(admin.ModelAdmin):
-    """Admin dla modelu CalendarOverride."""
+    """
+    Admin dla modelu CalendarOverride.
+    
+    Obsługuje zlokalizowane wartości PK (DateField) przy bulk actions.
+    """
     
     list_display = ["day", "day_type", "note"]
     list_filter = ["day_type"]
     search_fields = ["note"]
     date_hierarchy = "day"
+    
+    def __init__(self, *args, **kwargs):
+        """
+        Inicjalizuje admin z DateConverterService.
+        
+        DateConverterService jest używany do konwersji zlokalizowanych dat
+        z formularzy admin na format ISO 8601.
+        """
+        super().__init__(*args, **kwargs)
+        self.date_converter = self._create_date_converter()
+    
+    def _create_date_converter(self):
+        """
+        Factory method dla DateConverterService.
+        
+        Konfiguruje parsery w kolejności priorytetu:
+        1. ISO8601DateParser - najszybszy, dla dat już w ISO format
+        2. PolishLocalizedDateParser - dla "Sty. 30, 2026" z Django lokalizacji
+        3. NumericDateParser - fallback dla DD.MM.YYYY, DD/MM/YYYY, DD-MM-YYYY
+        
+        Returns:
+            DateConverterService skonfigurowany z parserami
+            
+        Note:
+            Metoda jest wydzielona dla łatwego override w testach lub subclassach.
+        """
+        from timetracker_app.utils.date_parsers import (
+            ISO8601DateParser,
+            PolishLocalizedDateParser,
+            NumericDateParser,
+        )
+        from timetracker_app.utils.date_converter import DateConverterService
+        
+        parsers = [
+            ISO8601DateParser(),
+            PolishLocalizedDateParser(),
+            NumericDateParser(),
+        ]
+        return DateConverterService(parsers)
     
     def response_action(self, request, queryset):
         """
@@ -204,60 +247,14 @@ class CalendarOverrideAdmin(admin.ModelAdmin):
         request.POST zawiera te zlokalizowane wartości, które powodują ValidationError
         przy próbie użycia ich w queryset.filter(pk__in=selected).
         
-        Rozwiązanie: przechwytujemy wartości, parsujemy polski format daty i konwertujemy
-        na YYYY-MM-DD przed wywołaniem oryginalnej response_action.
+        Rozwiązanie: używamy DateConverterService do konwersji dat na format ISO 8601
+        przed wywołaniem oryginalnej response_action.
         """
-        from datetime import datetime
-        import re
-        
-        # Konwertuj zlokalizowane daty z checkboxów na format YYYY-MM-DD
         if '_selected_action' in request.POST:
             selected = request.POST.getlist('_selected_action')
             
-            # Mapowanie polskich skrótów miesięcy
-            polish_months = {
-                'Sty': '01', 'Lut': '02', 'Mar': '03', 'Kwi': '04',
-                'Maj': '05', 'Cze': '06', 'Lip': '07', 'Sie': '08',
-                'Wrz': '09', 'Paź': '10', 'Lis': '11', 'Gru': '12',
-            }
-            
-            converted = []
-            for value in selected:
-                # Jeśli już jest w formacie YYYY-MM-DD, zostaw bez zmian
-                if value and len(value) == 10 and value[4] == '-' and value[7] == '-':
-                    converted.append(value)
-                    continue
-                
-                # Spróbuj sparsować zlokalizowany polski format "Sty. 30, 2026"
-                parsed_date = None
-                match = re.match(r'(\w+)\.\s+(\d{1,2}),\s+(\d{4})', value)
-                if match:
-                    month_abbr, day, year = match.groups()
-                    if month_abbr in polish_months:
-                        month = polish_months[month_abbr]
-                        parsed_date = f"{year}-{month}-{day.zfill(2)}"
-                
-                # Spróbuj inne formaty numeryczne
-                if not parsed_date:
-                    numeric_formats = [
-                        '%d.%m.%Y',      # "30.01.2026"
-                        '%d/%m/%Y',      # "30/01/2026"
-                        '%d-%m-%Y',      # "30-01-2026"
-                    ]
-                    
-                    for fmt in numeric_formats:
-                        try:
-                            date_obj = datetime.strptime(value, fmt).date()
-                            parsed_date = date_obj.strftime('%Y-%m-%d')
-                            break
-                        except ValueError:
-                            continue
-                
-                if parsed_date:
-                    converted.append(parsed_date)
-                else:
-                    # Jeśli nie udało się sparsować, użyj oryginalnej wartości
-                    converted.append(value)
+            # Użyj DateConverterService do konwersji wszystkich dat na ISO 8601
+            converted = self.date_converter.convert_many(selected)
             
             # Zamień request.POST na mutable copy i zaktualizuj wartości
             request.POST = request.POST.copy()
