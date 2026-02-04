@@ -67,8 +67,53 @@ python manage.py test timetracker_app.tests.test_auth  # tylko testy auth
   - `auth/` - Autentykacja (tokens, password flows)
   - `api/` - Endpointy REST API
   - `services/` - Logika biznesowa
+  - `utils/` - Narzędzia pomocnicze wielokrotnego użytku
   - `tests/` - Testy jednostkowe
   - `management/commands/` - Custom komendy Django
+
+### Moduł utils/ - narzędzia pomocnicze
+
+Katalog `timetracker_app/utils/` zawiera klasy i serwisy wielokrotnego użytku:
+
+#### date_parsers.py - Parsery dat (Strategy Pattern)
+
+Parsery dat implementujące wzorzec Strategy, każdy odpowiedzialny za jeden format:
+
+- **`DateParser`** - abstrakcyjna klasa bazowa (ABC)
+- **`ISO8601DateParser`** - format YYYY-MM-DD (najszybszy)
+- **`PolishLocalizedDateParser`** - polski format zlokalizowany (np. "Sty. 30, 2026")
+- **`NumericDateParser`** - formaty numeryczne (DD.MM.YYYY, DD/MM/YYYY, DD-MM-YYYY)
+
+#### date_converter.py - Serwis konwersji dat
+
+**`DateConverterService`** - serwis konwersji dat używający Chain of Responsibility:
+
+- Przyjmuje listę parserów w konstruktorze
+- Próbuje parsery po kolei aż do pierwszego sukcesu
+- Konwertuje różne formaty dat na ISO 8601 (YYYY-MM-DD)
+- Loguje niepowodzenia parsowania dla monitoringu
+- Fail-fast approach - błędne daty są odrzucane, nie przepuszczane
+
+**Wykorzystanie:**
+- `CalendarOverrideAdmin.response_action()` - konwersja dat przed bulk delete
+- Obsługa zlokalizowanych wartości PK w Django admin
+
+**Przykład użycia:**
+```python
+from timetracker_app.utils.date_parsers import (
+    ISO8601DateParser,
+    PolishLocalizedDateParser,
+)
+from timetracker_app.utils.date_converter import DateConverterService
+
+parsers = [ISO8601DateParser(), PolishLocalizedDateParser()]
+converter = DateConverterService(parsers)
+iso_date = converter.convert_to_iso("Sty. 30, 2026")  # "2026-01-30"
+```
+
+**Rozszerzalność:**
+- Dodanie nowego formatu = nowa klasa parsera (Open/Closed Principle)
+- Pełne pokrycie testami jednostkowymi (`tests/test_date_parsers.py`)
 
 ## Autentykacja
 

@@ -45,12 +45,64 @@ Primary Django app: `timetracker_app/`
   Token generation/validation + invite/reset flows.
 - `timetracker_app/outbox/`  
   Enqueue jobs and handlers (idempotent).
+- `timetracker_app/utils/`  
+  Reusable utilities (parsers, converters, helpers).
 - `timetracker_app/management/commands/`  
   Worker runner and sync task puller.
 - `timetracker_app/tests/`  
   Unit tests + service tests.
 
 **Do not** implement business rules inside API views or models.
+
+---
+
+## 2.5) Utils - reusable utilities
+
+**Directory:** `timetracker_app/utils/`
+
+Contains reusable classes and services following SOLID principles.
+
+### Date parsing (utils/date_parsers.py, utils/date_converter.py)
+
+**Problem:**  
+Django admin with `LANGUAGE_CODE='pl-pl'` renders checkboxes with localized date format  
+(e.g., "Sty. 30, 2026"). This causes ValidationError on bulk actions for models with  
+`DateField` as `primary_key`, because Django expects ISO 8601 format (YYYY-MM-DD).
+
+**Solution:**  
+- **Strategy Pattern** for date parsers - each format has its own class
+- **DateConverterService** uses Chain of Responsibility pattern
+- Fail-fast approach - invalid dates are logged and rejected
+- Full unit test coverage (`tests/test_date_parsers.py`)
+
+**Parsers:**
+- `ISO8601DateParser` - format YYYY-MM-DD (fastest, checked first)
+- `PolishLocalizedDateParser` - Polish localized format "Sty. 30, 2026"
+- `NumericDateParser` - numeric formats (DD.MM.YYYY, DD/MM/YYYY, DD-MM-YYYY)
+
+**Usage example:**
+```python
+from timetracker_app.utils.date_parsers import (
+    ISO8601DateParser,
+    PolishLocalizedDateParser,
+)
+from timetracker_app.utils.date_converter import DateConverterService
+
+parsers = [ISO8601DateParser(), PolishLocalizedDateParser()]
+converter = DateConverterService(parsers)
+iso_date = converter.convert_to_iso("Sty. 30, 2026")  # "2026-01-30"
+```
+
+**Used in:**
+- `CalendarOverrideAdmin.response_action()` - converts dates before bulk delete
+- Extensible - adding new format = new parser class (Open/Closed Principle)
+
+**Key design decisions:**
+- **SRP**: Each parser has single responsibility (one format)
+- **OCP**: New formats don't require modifying existing code
+- **DIP**: Admin depends on abstraction (DateParser), not concrete implementations
+- **Fail-fast**: Invalid dates are rejected, not silently passed through
+- **Logging**: All parsing failures are logged for monitoring
 
 ---
 
