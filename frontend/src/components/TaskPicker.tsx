@@ -43,7 +43,7 @@ export function TaskPicker({ tasks, onAddTask, disabled }: TaskPickerProps) {
       ) : (
         <List
           sx={{
-            maxHeight: 500,
+            maxHeight: 420,
             overflow: "auto",
             border: 1,
             borderColor: "divider",
